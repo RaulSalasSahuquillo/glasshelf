@@ -126,7 +126,11 @@ mod tests {
         for m in ALL {
             assert!(!translate(Lang::En, m).is_empty());
             assert!(!translate(Lang::Es, m).is_empty());
-            assert_ne!(translate(Lang::En, m), translate(Lang::Es, m), "{m:?} should differ between languages");
+            assert_ne!(
+                translate(Lang::En, m),
+                translate(Lang::Es, m),
+                "{m:?} should differ between languages"
+            );
         }
     }
 }

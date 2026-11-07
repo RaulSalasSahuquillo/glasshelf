@@ -83,9 +83,20 @@ pub struct Layout {
 impl Layout {
     pub fn new() -> Layout {
         let mut l = Layout {
-            slots: vec![], w: 800.0, h: 200.0, reveal: 0.0, label_alpha: 0.0, hover: 0.0, label_slot: None,
-            pointer: None, hold_until: None, menu_open: false, forced_visible: false,
-            manual_until: None, bounce: HashMap::new(), capture_wait_until: None,
+            slots: vec![],
+            w: 800.0,
+            h: 200.0,
+            reveal: 0.0,
+            label_alpha: 0.0,
+            hover: 0.0,
+            label_slot: None,
+            pointer: None,
+            hold_until: None,
+            menu_open: false,
+            forced_visible: false,
+            manual_until: None,
+            bounce: HashMap::new(),
+            capture_wait_until: None,
         };
         l.resize_for_slots();
         l
@@ -171,8 +182,8 @@ impl Layout {
         self.pointer.is_some()
             || self.menu_open
             || self.forced_visible
-            || self.manual_until.map_or(false, |t| now < t)
-            || self.hold_until.map_or(false, |t| now < t)
+            || self.manual_until.is_some_and(|t| now < t)
+            || self.hold_until.is_some_and(|t| now < t)
     }
 
     /// Current geometry of the panel inside the surface.
@@ -180,7 +191,12 @@ impl Layout {
         let (left, total) = self.layout();
         let slide = (1.0 - self.reveal).max(0.0).powf(1.6) * (PANEL_H + BOTTOM_GAP + 30.0);
         let bottom = self.h - BOTTOM_GAP + slide;
-        PanelGeom { left, top: bottom - PANEL_H, width: total, height: PANEL_H }
+        PanelGeom {
+            left,
+            top: bottom - PANEL_H,
+            width: total,
+            height: PANEL_H,
+        }
     }
 
     /// Resting position of the panel's top edge (not slid down).
@@ -217,7 +233,7 @@ impl Layout {
         } else {
             self.reveal = target;
         }
-        if self.pointer.is_none() && self.hold_until.map_or(false, |t| now < t) {
+        if self.pointer.is_none() && self.hold_until.is_some_and(|t| now < t) {
             busy = true; // waiting for the hide delay to expire
         }
 
@@ -279,7 +295,8 @@ impl Layout {
 
         // launch bounce
         let t_max = BOUNCE_TIME * 3.2;
-        self.bounce.retain(|_, t0| now.duration_since(*t0).as_secs_f32() <= t_max);
+        self.bounce
+            .retain(|_, t0| now.duration_since(*t0).as_secs_f32() <= t_max);
         if !self.bounce.is_empty() {
             busy = true;
         }
@@ -294,7 +311,12 @@ impl Layout {
         let (left, total) = self.layout();
         if self.reveal < 0.02 {
             let hot_w = (self.rest_total() + HOT_PAD) as i32;
-            return ((self.w / 2.0 - hot_w as f32 / 2.0) as i32, (h - HOT_H) as i32, hot_w, HOT_H as i32);
+            return (
+                (self.w / 2.0 - hot_w as f32 / 2.0) as i32,
+                (h - HOT_H) as i32,
+                hot_w,
+                HOT_H as i32,
+            );
         }
         let panel_bottom = h - BOTTOM_GAP;
         let top = panel_bottom - PANEL_H;
@@ -329,7 +351,15 @@ mod tests {
     use super::*;
 
     fn slot(kind: Kind, key: &str, base: f32) -> Slot {
-        Slot { kind, entry: 0, key: key.into(), base, s: 1.0, x: 0.0, w: base }
+        Slot {
+            kind,
+            entry: 0,
+            key: key.into(),
+            base,
+            s: 1.0,
+            x: 0.0,
+            w: base,
+        }
     }
 
     /// Eight apps, a separator and the "+" button: the shape of a typical dock.
@@ -363,7 +393,10 @@ mod tests {
     fn resting_dock_is_centred_and_ordered() {
         let mut l = typical_layout();
         let (left, total) = l.layout();
-        assert!((left + total / 2.0 - l.w / 2.0).abs() < 0.01, "dock must be centred in its surface");
+        assert!(
+            (left + total / 2.0 - l.w / 2.0).abs() < 0.01,
+            "dock must be centred in its surface"
+        );
         assert!((total - l.rest_total()).abs() < 0.01);
         for pair in l.slots.windows(2) {
             assert!(pair[1].x > pair[0].x, "slots must be laid out left to right");
@@ -380,11 +413,25 @@ mod tests {
         settle(&mut l, now, 240);
 
         let scales: Vec<f32> = l.slots.iter().filter(|s| s.kind == Kind::App).map(|s| s.s).collect();
-        let (peak_idx, peak) = scales.iter().copied().enumerate().fold((0, 0.0), |a, (i, v)| if v > a.1 { (i, v) } else { a });
-        assert!((peak_idx as i32 - target as i32).abs() <= 1, "peak at {peak_idx}, expected near {target}");
-        assert!(peak > ZOOM - 0.05 && peak <= ZOOM + 0.001, "peak scale {peak} should reach ZOOM ({ZOOM})");
+        let (peak_idx, peak) = scales
+            .iter()
+            .copied()
+            .enumerate()
+            .fold((0, 0.0), |a, (i, v)| if v > a.1 { (i, v) } else { a });
+        assert!(
+            (peak_idx as i32 - target as i32).abs() <= 1,
+            "peak at {peak_idx}, expected near {target}"
+        );
+        assert!(
+            peak > ZOOM - 0.05 && peak <= ZOOM + 0.001,
+            "peak scale {peak} should reach ZOOM ({ZOOM})"
+        );
         // Far-away icons are untouched.
-        assert!((scales[7] - 1.0).abs() < 0.01, "icon far from the pointer must stay at 1.0, got {}", scales[7]);
+        assert!(
+            (scales[7] - 1.0).abs() < 0.01,
+            "icon far from the pointer must stay at 1.0, got {}",
+            scales[7]
+        );
         // The dock widened.
         let (_, total) = l.layout();
         assert!(total > l.rest_total() + 20.0);
@@ -400,7 +447,10 @@ mod tests {
         assert!(l.slots[2].s > 1.5);
         l.pointer = None;
         settle(&mut l, now, 400);
-        assert!(l.slots.iter().all(|s| (s.s - 1.0).abs() < 0.01), "every icon must return to its resting size");
+        assert!(
+            l.slots.iter().all(|s| (s.s - 1.0).abs() < 0.01),
+            "every icon must return to its resting size"
+        );
     }
 
     #[test]
@@ -410,7 +460,10 @@ mod tests {
         let (x, y, w, h) = l.input_rect();
         assert_eq!(h, HOT_H as i32);
         assert_eq!(y, (l.h - HOT_H) as i32);
-        assert!(w as f32 >= l.rest_total(), "the hot zone must be at least as wide as the resting dock");
+        assert!(
+            w as f32 >= l.rest_total(),
+            "the hot zone must be at least as wide as the resting dock"
+        );
         assert!(x >= 0 && (x + w) as f32 <= l.w);
     }
 
@@ -465,7 +518,9 @@ mod tests {
         let mut l = typical_layout();
         l.layout();
         let sep = l.slots.iter().find(|s| s.kind == Kind::Sep).unwrap().clone();
-        assert!(l.slot_at(sep.x + sep.w / 2.0).map_or(true, |i| l.slots[i].kind != Kind::Sep));
+        assert!(l
+            .slot_at(sep.x + sep.w / 2.0)
+            .is_none_or(|i| l.slots[i].kind != Kind::Sep));
         let first = l.slots[0].clone();
         assert_eq!(l.slot_at(first.x + first.w / 2.0), Some(0));
         assert_eq!(l.slot_at(-50.0), None);

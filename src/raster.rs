@@ -27,8 +27,7 @@ use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::raw::TableProvider;
 use skrifa::{FontRef, GlyphId, MetadataProvider};
 use tiny_skia::{
-    FillRule, GradientStop, LinearGradient, Paint, PathBuilder, Pixmap, Point, Rect, SpreadMode,
-    Stroke, Transform,
+    FillRule, GradientStop, LinearGradient, Paint, PathBuilder, Pixmap, Point, Rect, SpreadMode, Stroke, Transform,
 };
 
 // Bitmap
@@ -147,7 +146,9 @@ struct Candidate {
 const MAX_GOOD_UPSCALE_PCT: u32 = 150;
 
 fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(PathBuf::from).filter(|p| !p.as_os_str().is_empty())
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|p| !p.as_os_str().is_empty())
 }
 
 fn default_icon_base_dirs() -> Vec<PathBuf> {
@@ -263,8 +264,7 @@ fn parse_ini(text: &str) -> IniSections {
         }
         if let Some((k, v)) = line.split_once('=') {
             if let Some((_, map)) = out.last_mut() {
-                map.entry(k.trim().to_string())
-                    .or_insert_with(|| v.trim().to_string());
+                map.entry(k.trim().to_string()).or_insert_with(|| v.trim().to_string());
             }
         }
     }
@@ -444,13 +444,7 @@ impl IconTheme {
         roots_todo.push("Adwaita".to_string());
 
         // Depth-first, in listed order; hicolor is implicit and always last.
-        fn visit(
-            name: &str,
-            base_dirs: &[PathBuf],
-            visited: &mut HashSet<String>,
-            chain: &mut Vec<Theme>,
-            depth: u32,
-        ) {
+        fn visit(name: &str, base_dirs: &[PathBuf], visited: &mut HashSet<String>, chain: &mut Vec<Theme>, depth: u32) {
             if depth > 16 || !visited.insert(name.to_string()) {
                 return;
             }
@@ -504,7 +498,7 @@ impl IconTheme {
                 if c.upscale_pct <= MAX_GOOD_UPSCALE_PCT {
                     return Some(c.path);
                 }
-                if best.as_ref().map_or(true, |b| c.cost < b.cost) {
+                if best.as_ref().is_none_or(|b| c.cost < b.cost) {
                     best = Some(c);
                 }
             }
@@ -535,7 +529,7 @@ impl IconTheme {
                         return Some(c.path);
                     }
                     best = Some(c);
-                } else if best.as_ref().map_or(false, |b| b.upscale_pct > MAX_GOOD_UPSCALE_PCT)
+                } else if best.as_ref().is_some_and(|b| b.upscale_pct > MAX_GOOD_UPSCALE_PCT)
                     && c.cost < best.as_ref().map_or(u32::MAX, |b| b.cost)
                 {
                     best = Some(c);
@@ -554,7 +548,11 @@ const MAX_FILE_BYTES: u64 = 96 * 1024 * 1024;
 /// A decoded icon source, independent of the output size.
 enum Source {
     /// Premultiplied RGBA8.
-    Raster { w: u32, h: u32, rgba: Vec<u8> },
+    Raster {
+        w: u32,
+        h: u32,
+        rgba: Vec<u8>,
+    },
     Svg(Box<usvg::Tree>),
 }
 
@@ -568,12 +566,7 @@ pub fn load_icon(theme: &IconTheme, icon: &str, px: u32) -> Option<Bitmap> {
 
 /// Like [`load_icon`], with the colour used for SVG `currentColor`
 /// (symbolic icons). `load_icon` uses white.
-pub fn load_icon_colored(
-    theme: &IconTheme,
-    icon: &str,
-    px: u32,
-    current_color: [u8; 3],
-) -> Option<Bitmap> {
+pub fn load_icon_colored(theme: &IconTheme, icon: &str, px: u32, current_color: [u8; 3]) -> Option<Bitmap> {
     if px == 0 || px > MAX_ICON_PX {
         return None;
     }
@@ -586,11 +579,7 @@ pub fn load_icon_colored(
 /// (the source is chosen for the largest size). One bitmap per entry of
 /// `sizes`, in order; entries that are 0 or too large yield 1x1 transparent.
 pub fn load_icon_sizes(theme: &IconTheme, icon: &str, sizes: &[u32]) -> Vec<Bitmap> {
-    let max = sizes
-        .iter()
-        .copied()
-        .filter(|s| *s > 0 && *s <= MAX_ICON_PX)
-        .max();
+    let max = sizes.iter().copied().filter(|s| *s > 0 && *s <= MAX_ICON_PX).max();
     let src = max.and_then(|m| resolve_source(theme, icon, m, [255, 255, 255]));
     sizes
         .iter()
@@ -674,10 +663,8 @@ fn decode_file(path: &Path, color: [u8; 3]) -> Option<Source> {
         .map(|e| e.to_ascii_lowercase())
         .unwrap_or_default();
     let head = &data[..data.len().min(4096)];
-    let looks_svg = data.starts_with(&[0x1f, 0x8b])
-        || ext == "svg"
-        || ext == "svgz"
-        || head.windows(4).any(|w| w == b"<svg");
+    let looks_svg =
+        data.starts_with(&[0x1f, 0x8b]) || ext == "svg" || ext == "svgz" || head.windows(4).any(|w| w == b"<svg");
     if looks_svg {
         return parse_svg(&data, path.parent(), color).map(|t| Source::Svg(Box::new(t)));
     }
@@ -725,7 +712,9 @@ fn render_tree(tree: &usvg::Tree, px: u32) -> Option<Bitmap> {
 
 /// Decodes any PNG into straight RGBA8.
 fn decode_png(data: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
-    let limits = png::Limits { bytes: 512 * 1024 * 1024 };
+    let limits = png::Limits {
+        bytes: 512 * 1024 * 1024,
+    };
     let mut dec = png::Decoder::new_with_limits(Cursor::new(data), limits);
     dec.set_transformations(png::Transformations::normalize_to_color8());
     let mut reader = dec.read_info().ok()?;
@@ -770,11 +759,7 @@ fn decode_png(data: &[u8]) -> Option<(u32, u32, Vec<u8>)> {
             let trns = info.trns.as_ref();
             for (d, s) in out.chunks_exact_mut(4).zip(src.iter()) {
                 let i = *s as usize;
-                let (r, g, b) = (
-                    *pal.get(i * 3)?,
-                    *pal.get(i * 3 + 1)?,
-                    *pal.get(i * 3 + 2)?,
-                );
+                let (r, g, b) = (*pal.get(i * 3)?, *pal.get(i * 3 + 1)?, *pal.get(i * 3 + 2)?);
                 let a = trns.and_then(|t| t.get(i).copied()).unwrap_or(255);
                 d.copy_from_slice(&[r, g, b, a]);
             }
@@ -1008,15 +993,14 @@ pub fn rounded_square_placeholder(px: u32, rgb: [u8; 3]) -> Bitmap {
         };
         tiny_skia::Color::from_rgba8(f(rgb[0]), f(rgb[1]), f(rgb[2]), 255)
     };
-    let mut paint = Paint::default();
-    paint.anti_alias = true;
+    let mut paint = Paint {
+        anti_alias: true,
+        ..Paint::default()
+    };
     paint.shader = LinearGradient::new(
         Point::from_xy(0.0, rect.top()),
         Point::from_xy(0.0, rect.bottom()),
-        vec![
-            GradientStop::new(0.0, mix(0.22)),
-            GradientStop::new(1.0, mix(-0.28)),
-        ],
+        vec![GradientStop::new(0.0, mix(0.22)), GradientStop::new(1.0, mix(-0.28))],
         SpreadMode::Pad,
         Transform::identity(),
     )
@@ -1024,8 +1008,10 @@ pub fn rounded_square_placeholder(px: u32, rgb: [u8; 3]) -> Bitmap {
     pm.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
 
     // Thin inner highlight rim.
-    let mut rim = Paint::default();
-    rim.anti_alias = true;
+    let mut rim = Paint {
+        anti_alias: true,
+        ..Paint::default()
+    };
     rim.set_color_rgba8(255, 255, 255, 46);
     let stroke = Stroke {
         width: (s * 0.012).max(1.0),
@@ -1040,8 +1026,10 @@ pub fn rounded_square_placeholder(px: u32, rgb: [u8; 3]) -> Bitmap {
     let gy = rect.top() + (rect.height() - gh) * 0.5;
     if let Some(gr) = Rect::from_xywh(gx, gy, gw, gh) {
         if let Some(gp) = rounded_rect_path(gr, gw * 0.12) {
-            let mut gpnt = Paint::default();
-            gpnt.anti_alias = true;
+            let mut gpnt = Paint {
+                anti_alias: true,
+                ..Paint::default()
+            };
             gpnt.set_color_rgba8(255, 255, 255, 200);
             let gs = Stroke {
                 width: (s * 0.035).max(1.0),
@@ -1058,7 +1046,7 @@ pub fn rounded_square_placeholder(px: u32, rgb: [u8; 3]) -> Bitmap {
 
 fn rounded_rect_path(r: Rect, rad: f32) -> Option<tiny_skia::Path> {
     // Cubic approximation of a circular corner.
-    let k = 0.552_284_75 * rad;
+    let k = 0.552_284_8 * rad;
     let (l, t, rt, b) = (r.left(), r.top(), r.right(), r.bottom());
     let mut pb = PathBuilder::new();
     pb.move_to(l + rad, t);
@@ -1191,23 +1179,18 @@ fn collect_fonts(dir: &Path, depth: u32, out: &mut Vec<(String, PathBuf)>) {
 }
 
 fn pick_family_files(all: &[(String, PathBuf)]) -> Vec<FontFiles> {
-    let find = |pred: &dyn Fn(&str) -> bool| -> Option<PathBuf> {
-        all.iter().find(|(s, _)| pred(s)).map(|(_, p)| p.clone())
-    };
+    let find =
+        |pred: &dyn Fn(&str) -> bool| -> Option<PathBuf> { all.iter().find(|(s, _)| pred(s)).map(|(_, p)| p.clone()) };
     vec![
         FontFiles {
             family: "Ubuntu Sans",
-            variable: find(&|s| {
-                s.starts_with("ubuntusans[") && !s.contains("italic") && !s.contains("mono")
-            }),
+            variable: find(&|s| s.starts_with("ubuntusans[") && !s.contains("italic") && !s.contains("mono")),
             regular: find(&|s| s == "ubuntusans-regular"),
             bold: find(&|s| s == "ubuntusans-bold"),
         },
         FontFiles {
             family: "Inter",
-            variable: find(&|s| {
-                s == "intervariable" || s.starts_with("inter[") || s == "inter-variable"
-            }),
+            variable: find(&|s| s == "intervariable" || s.starts_with("inter[") || s == "inter-variable"),
             regular: find(&|s| s == "inter-regular" || s == "inter"),
             bold: find(&|s| s == "inter-bold"),
         },
@@ -1291,8 +1274,18 @@ impl TextRenderer {
                     let reg = make_location(&data, Some(400.0));
                     let bold = make_location(&data, Some(700.0));
                     return Some(TextRenderer::from_faces(
-                        Face { data: data.clone(), index: 0, location: reg, synthetic_bold: false },
-                        Face { data, index: 0, location: bold, synthetic_bold: false },
+                        Face {
+                            data: data.clone(),
+                            index: 0,
+                            location: reg,
+                            synthetic_bold: false,
+                        },
+                        Face {
+                            data,
+                            index: 0,
+                            location: bold,
+                            synthetic_bold: false,
+                        },
                         ff.family,
                     ));
                 }
@@ -1306,7 +1299,12 @@ impl TextRenderer {
                         .and_then(|b| load_font_bytes(b))
                         .map(|bd| {
                             let l = make_location(&bd, None);
-                            Face { data: bd, index: 0, location: l, synthetic_bold: false }
+                            Face {
+                                data: bd,
+                                index: 0,
+                                location: l,
+                                synthetic_bold: false,
+                            }
                         })
                         .unwrap_or_else(|| Face {
                             data: rd.clone(),
@@ -1315,7 +1313,12 @@ impl TextRenderer {
                             synthetic_bold: true,
                         });
                     return Some(TextRenderer::from_faces(
-                        Face { data: rd, index: 0, location: rl, synthetic_bold: false },
+                        Face {
+                            data: rd,
+                            index: 0,
+                            location: rl,
+                            synthetic_bold: false,
+                        },
                         bold_face,
                         ff.family,
                     ));
@@ -1330,7 +1333,12 @@ impl TextRenderer {
             .and_then(|p| load_font_bytes(&p))
             .map(|bd| {
                 let l = make_location(&bd, None);
-                Face { data: bd, index: 0, location: l, synthetic_bold: false }
+                Face {
+                    data: bd,
+                    index: 0,
+                    location: l,
+                    synthetic_bold: false,
+                }
             })
             .unwrap_or_else(|| Face {
                 data: rd.clone(),
@@ -1340,7 +1348,12 @@ impl TextRenderer {
             });
         let rl = make_location(&rd, Some(400.0));
         Some(TextRenderer::from_faces(
-            Face { data: rd, index: 0, location: rl, synthetic_bold: false },
+            Face {
+                data: rd,
+                index: 0,
+                location: rl,
+                synthetic_bold: false,
+            },
             bold_face,
             "sans (fontconfig)",
         ))
@@ -1492,11 +1505,7 @@ impl TextRenderer {
         };
         let charmap = font.charmap();
         let gm = font.glyph_metrics(Size::unscaled(), &location);
-        let upem = font
-            .head()
-            .map(|h| h.units_per_em() as f32)
-            .unwrap_or(1000.0)
-            .max(1.0);
+        let upem = font.head().map(|h| h.units_per_em() as f32).unwrap_or(1000.0).max(1.0);
         let k = px / upem;
         let extra = if synth { px * 0.035 } else { 0.0 };
         let gpos = font.gpos().ok();
@@ -1504,9 +1513,7 @@ impl TextRenderer {
         for ch in text.chars() {
             let ch = match ch {
                 '\t' | '\u{a0}' | '\u{2009}' | '\u{202f}' => ' ',
-                '\n' | '\r' | '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{feff}' | '\u{ad}' => {
-                    continue
-                }
+                '\n' | '\r' | '\u{200b}' | '\u{200c}' | '\u{200d}' | '\u{feff}' | '\u{ad}' => continue,
                 c => c,
             };
             let gid = charmap
@@ -1611,9 +1618,7 @@ fn sanitize_px(px: f32) -> f32 {
 fn gpos_kern(gpos: &skrifa::raw::tables::gpos::Gpos<'_>, left: u32, right: u32) -> i32 {
     use skrifa::raw::tables::gpos::{PairPos, PositionSubtables};
     use skrifa::raw::types::Tag;
-    let (Ok(scripts), Ok(features), Ok(lookups)) =
-        (gpos.script_list(), gpos.feature_list(), gpos.lookup_list())
-    else {
+    let (Ok(scripts), Ok(features), Ok(lookups)) = (gpos.script_list(), gpos.feature_list(), gpos.lookup_list()) else {
         return 0;
     };
     let Some(sel) = scripts.select(&[Tag::new(b"latn")]) else {
@@ -1702,7 +1707,9 @@ mod tests {
 
     fn tmp_dir(tag: &str) -> PathBuf {
         // Under the system temp dir (never inside the repository).
-        let d = std::env::temp_dir().join("glassdock-tests").join(format!("{}_{}", tag, std::process::id()));
+        let d = std::env::temp_dir()
+            .join("glassdock-tests")
+            .join(format!("{}_{}", tag, std::process::id()));
         let _ = fs::remove_dir_all(&d);
         let _ = fs::create_dir_all(&d);
         d
@@ -1729,12 +1736,22 @@ mod tests {
         let dir = tmp_dir("premul");
         let p = dir.join("a.png");
         // straight (200, 100, 50) at alpha 128
-        write_png(&p, 4, 4, png::ColorType::Rgba, png::BitDepth::Eight, &solid_rgba(4, 4, [200, 100, 50, 128]));
+        write_png(
+            &p,
+            4,
+            4,
+            png::ColorType::Rgba,
+            png::BitDepth::Eight,
+            &solid_rgba(4, 4, [200, 100, 50, 128]),
+        );
         let theme = IconTheme::with_base_dirs(None, vec![]);
         let b = load_icon(&theme, p.to_str().expect("utf8"), 4).expect("icon");
         assert_eq!(b.pixel(1, 1), [100, 50, 25, 128]);
         // invariant: colour <= alpha everywhere
-        assert!(b.rgba.chunks_exact(4).all(|p| p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3]));
+        assert!(b
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3]));
     }
 
     #[test]
@@ -1742,17 +1759,45 @@ mod tests {
         let dir = tmp_dir("ctypes");
         let theme = IconTheme::with_base_dirs(None, vec![]);
         let load = |name: &str| load_icon(&theme, dir.join(name).to_str().expect("utf8"), 8).expect("icon");
-        write_png(&dir.join("g8.png"), 2, 2, png::ColorType::Grayscale, png::BitDepth::Eight, &[10, 10, 10, 10]);
+        write_png(
+            &dir.join("g8.png"),
+            2,
+            2,
+            png::ColorType::Grayscale,
+            png::BitDepth::Eight,
+            &[10, 10, 10, 10],
+        );
         assert_eq!(load("g8.png").pixel(4, 4), [10, 10, 10, 255]);
-        write_png(&dir.join("ga8.png"), 2, 2, png::ColorType::GrayscaleAlpha, png::BitDepth::Eight, &[200, 100, 200, 100, 200, 100, 200, 100]);
+        write_png(
+            &dir.join("ga8.png"),
+            2,
+            2,
+            png::ColorType::GrayscaleAlpha,
+            png::BitDepth::Eight,
+            &[200, 100, 200, 100, 200, 100, 200, 100],
+        );
         let p = load("ga8.png").pixel(4, 4);
         assert_eq!(p[3], 100);
         assert_eq!(p[0], premul8(200, 100));
-        write_png(&dir.join("rgb16.png"), 1, 1, png::ColorType::Rgb, png::BitDepth::Sixteen, &[0xff, 0xff, 0x80, 0x00, 0x00, 0x00]);
+        write_png(
+            &dir.join("rgb16.png"),
+            1,
+            1,
+            png::ColorType::Rgb,
+            png::BitDepth::Sixteen,
+            &[0xff, 0xff, 0x80, 0x00, 0x00, 0x00],
+        );
         let p = load("rgb16.png").pixel(4, 4);
         assert_eq!([p[0], p[3]], [255, 255]);
         assert!(p[1] >= 127 && p[1] <= 128 && p[2] == 0);
-        write_png(&dir.join("g1.png"), 8, 1, png::ColorType::Grayscale, png::BitDepth::One, &[0b1010_1010]);
+        write_png(
+            &dir.join("g1.png"),
+            8,
+            1,
+            png::ColorType::Grayscale,
+            png::BitDepth::One,
+            &[0b1010_1010],
+        );
         assert_eq!(load("g1.png").pixel(0, 3)[3], 255); // 8x1 centred on row 3
     }
 
@@ -1860,7 +1905,11 @@ mod tests {
         rgba(t.join("128x128/apps/both.png"));
         rgba(t.join("32x32@2x/apps/hidpi.png"));
         rgba(t.join("48x48/apps/hidpi.png"));
-        fs::write(t.join("scalable/apps/vec.svg"), "<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>").expect("write");
+        fs::write(
+            t.join("scalable/apps/vec.svg"),
+            "<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'/>",
+        )
+        .expect("write");
         rgba(t.join("48x48/apps/vec.png"));
         rgba(p.join("256x256/apps/inherited.png"));
         rgba(p.join("256x256/apps/only48.png"));
@@ -1879,11 +1928,21 @@ mod tests {
         // SVG preferred over PNG when a scalable dir has it
         assert!(th.find("vec", 160).expect("vec").ends_with("scalable/apps/vec.svg"));
         // Scale=2 directory (physical 64) preferred for 60..64
-        assert!(th.find("hidpi", 64).expect("hidpi").ends_with("32x32@2x/apps/hidpi.png"));
+        assert!(th
+            .find("hidpi", 64)
+            .expect("hidpi")
+            .ends_with("32x32@2x/apps/hidpi.png"));
         // inherited theme
-        assert!(th.find("inherited", 160).expect("inh").ends_with("P/256x256/apps/inherited.png"));
+        assert!(th
+            .find("inherited", 160)
+            .expect("inh")
+            .ends_with("P/256x256/apps/inherited.png"));
         // 48px icon in T would be a 3.3x upscale for 160: inherited 256 one is preferred
-        assert!(th.find("only48", 160).expect("only48").to_string_lossy().contains("/P/256x256"));
+        assert!(th
+            .find("only48", 160)
+            .expect("only48")
+            .to_string_lossy()
+            .contains("/P/256x256"));
         assert!(th.find("missing-icon", 64).is_none());
         // absolute paths pass through
         let abs = base.join("T/48x48/apps/both.png");
@@ -1896,7 +1955,10 @@ mod tests {
         let b = load_icon(&theme, "definitely-not-an-icon", 88).expect("fallback");
         assert_eq!((b.w, b.h), (88, 88));
         assert!(b.rgba.chunks_exact(4).any(|p| p[3] == 255));
-        assert!(b.rgba.chunks_exact(4).all(|p| p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3]));
+        assert!(b
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3]));
         assert!(load_icon(&theme, "x", 0).is_none());
         let bad = tmp_dir("bad").join("broken.png");
         fs::write(&bad, b"\x89PNG not really").expect("write");
@@ -1922,7 +1984,14 @@ mod tests {
     fn load_icon_sizes_decodes_once_and_matches_sizes() {
         let dir = tmp_dir("sizes");
         let p = dir.join("big.png");
-        write_png(&p, 64, 64, png::ColorType::Rgba, png::BitDepth::Eight, &solid_rgba(64, 64, [10, 200, 30, 255]));
+        write_png(
+            &p,
+            64,
+            64,
+            png::ColorType::Rgba,
+            png::BitDepth::Eight,
+            &solid_rgba(64, 64, [10, 200, 30, 255]),
+        );
         let theme = IconTheme::with_base_dirs(None, vec![]);
         let v = load_icon_sizes(&theme, p.to_str().expect("utf8"), &[16, 0, 44, 160]);
         assert_eq!(v.len(), 4);
@@ -1954,7 +2023,10 @@ mod tests {
         let b = rounded_square_placeholder(64, [200, 40, 40]);
         assert_eq!(b.pixel(0, 0)[3], 0); // corner transparent
         assert_eq!(b.pixel(32, 12)[3], 255);
-        assert!(b.rgba.chunks_exact(4).all(|p| p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3]));
+        assert!(b
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p[0] <= p[3] && p[1] <= p[3] && p[2] <= p[3]));
     }
 
     #[test]
@@ -1967,7 +2039,10 @@ mod tests {
         let img = tr.render_ex("Añadir al dock · 2", 26.0, true);
         let b = &img.bitmap;
         assert!(b.w > 100 && b.h > 15);
-        assert!(b.rgba.chunks_exact(4).all(|p| p[0] == p[3] && p[1] == p[3] && p[2] == p[3]));
+        assert!(b
+            .rgba
+            .chunks_exact(4)
+            .all(|p| p[0] == p[3] && p[1] == p[3] && p[2] == p[3]));
         assert!(b.rgba.chunks_exact(4).any(|p| p[3] > 200));
         // 1px transparent padding on every side
         for x in 0..b.w {

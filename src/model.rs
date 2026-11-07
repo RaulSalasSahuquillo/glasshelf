@@ -183,7 +183,11 @@ impl ParseCtx {
         let desktops = env_nonempty("XDG_CURRENT_DESKTOP")
             .map(|v| v.split(':').filter(|s| !s.is_empty()).map(str::to_string).collect())
             .unwrap_or_default();
-        ParseCtx { locales: env_locale_keys(), desktops, check_try_exec: true }
+        ParseCtx {
+            locales: env_locale_keys(),
+            desktops,
+            check_try_exec: true,
+        }
     }
 }
 
@@ -264,7 +268,10 @@ fn parse_groups(text: &str) -> Vec<RawGroup> {
         }
         if l.starts_with('[') {
             if let Some(end) = l.rfind(']') {
-                groups.push(RawGroup { name: l[1..end].to_string(), kv: Vec::new() });
+                groups.push(RawGroup {
+                    name: l[1..end].to_string(),
+                    kv: Vec::new(),
+                });
             }
             continue;
         }
@@ -327,7 +334,13 @@ fn kv_bool(kv: &[(String, String)], key: &str) -> bool {
 
 fn kv_list(kv: &[(String, String)], key: &str) -> Vec<String> {
     kv_get(kv, key)
-        .map(|v| v.split(';').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect())
+        .map(|v| {
+            v.split(';')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -380,7 +393,9 @@ pub fn parse_desktop_entry(text: &str, path: &Path, id: &str, ctx: &ParseCtx) ->
     let mut actions = Vec::new();
     for aid in kv_list(kv, "Actions") {
         let gname = format!("Desktop Action {aid}");
-        let Some(g) = groups.iter().find(|g| g.name == gname) else { continue };
+        let Some(g) = groups.iter().find(|g| g.name == gname) else {
+            continue;
+        };
         let (Some(aname), Some(aexec)) = (
             kv_localized(&g.kv, "Name", &ctx.locales),
             kv_get(&g.kv, "Exec").map(unescape).filter(|e| !e.is_empty()),
@@ -390,7 +405,11 @@ pub fn parse_desktop_entry(text: &str, path: &Path, id: &str, ctx: &ParseCtx) ->
         if actions.iter().any(|a: &AppAction| a.id == aid) {
             continue;
         }
-        actions.push(AppAction { id: aid, name: aname, exec: aexec });
+        actions.push(AppAction {
+            id: aid,
+            name: aname,
+            exec: aexec,
+        });
     }
     Parsed::App(AppInfo {
         id: id.to_string(),
@@ -406,14 +425,18 @@ pub fn parse_desktop_entry(text: &str, path: &Path, id: &str, ctx: &ParseCtx) ->
 }
 
 fn is_executable(p: &Path) -> bool {
-    fs::metadata(p).map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0).unwrap_or(false)
+    fs::metadata(p)
+        .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
 }
 
 fn program_exists(prog: &str) -> bool {
     if prog.contains('/') {
         return is_executable(Path::new(prog));
     }
-    let Some(path) = std::env::var_os("PATH") else { return false };
+    let Some(path) = std::env::var_os("PATH") else {
+        return false;
+    };
     std::env::split_paths(&path).any(|d| is_executable(&d.join(prog)))
 }
 
@@ -492,7 +515,10 @@ impl Catalog {
     }
 
     pub fn from_apps(apps: Vec<AppInfo>) -> Catalog {
-        let mut c = Catalog { apps, ..Catalog::default() };
+        let mut c = Catalog {
+            apps,
+            ..Catalog::default()
+        };
         for (i, a) in c.apps.iter().enumerate() {
             c.by_id.entry(a.id.clone()).or_insert(i);
             let k = id_key(&a.id);
@@ -706,7 +732,11 @@ pub fn expand_exec(exec: &str, app: &AppInfo) -> Vec<String> {
 
 /// Candidate commands (in order) to launch the app or one of its actions.
 pub fn launch_commands(app: &AppInfo, action: Option<&str>) -> Vec<Vec<String>> {
-    let gio = vec!["gio".to_string(), "launch".to_string(), app.path.to_string_lossy().into_owned()];
+    let gio = vec![
+        "gio".to_string(),
+        "launch".to_string(),
+        app.path.to_string_lossy().into_owned(),
+    ];
     match action {
         None => {
             let mut v = vec![gio];
@@ -717,7 +747,9 @@ pub fn launch_commands(app: &AppInfo, action: Option<&str>) -> Vec<Vec<String>> 
             v
         }
         Some(a) => {
-            let Some(act) = app.actions.iter().find(|x| x.id == a) else { return Vec::new() };
+            let Some(act) = app.actions.iter().find(|x| x.id == a) else {
+                return Vec::new();
+            };
             if app.terminal {
                 return vec![gio]; // no reliable way to wrap an action in a terminal: just open the app
             }
@@ -740,7 +772,10 @@ fn spawn_detached(argv: &[String]) -> io::Result<()> {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "empty command"));
     };
     let mut cmd = Command::new(prog);
-    cmd.args(args).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    cmd.args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
     if let Some(h) = home_dir().filter(|h| h.is_dir()) {
         cmd.current_dir(h);
     }
@@ -754,7 +789,9 @@ fn spawn_detached(argv: &[String]) -> io::Result<()> {
     let mut child = cmd.spawn()?;
     // Tiny thread that reaps the child so no zombie is left behind (the child is already
     // a session leader).
-    let reaper = std::thread::Builder::new().name("launch-reap".into()).stack_size(64 * 1024);
+    let reaper = std::thread::Builder::new()
+        .name("launch-reap".into())
+        .stack_size(64 * 1024);
     if reaper
         .spawn(move || {
             let _ = child.wait();
@@ -837,14 +874,17 @@ fn connect_timeout(path: &Path) -> io::Result<UnixStream> {
     CONNECTS_IN_FLIGHT.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = mpsc::channel();
     let p = path.to_path_buf();
-    let spawned = std::thread::Builder::new().name("hypr-connect".into()).stack_size(64 * 1024).spawn(move || {
-        let r = UnixStream::connect(&p);
-        CONNECTS_IN_FLIGHT.fetch_sub(1, Ordering::Relaxed);
-        let _ = tx.send(r);
-    });
+    let spawned = std::thread::Builder::new()
+        .name("hypr-connect".into())
+        .stack_size(64 * 1024)
+        .spawn(move || {
+            let r = UnixStream::connect(&p);
+            CONNECTS_IN_FLIGHT.fetch_sub(1, Ordering::Relaxed);
+            let _ = tx.send(r);
+        });
     if spawned.is_err() {
         CONNECTS_IN_FLIGHT.fetch_sub(1, Ordering::Relaxed);
-        return Err(io::Error::new(io::ErrorKind::Other, "could not spawn the connect thread"));
+        return Err(io::Error::other("could not spawn the connect thread"));
     }
     match rx.recv_timeout(CONNECT_TIMEOUT) {
         Ok(r) => r,
@@ -853,7 +893,8 @@ fn connect_timeout(path: &Path) -> io::Result<UnixStream> {
 }
 
 fn is_valid_address(a: &str) -> bool {
-    a.strip_prefix("0x").map_or(false, |h| !h.is_empty() && h.len() <= 16 && h.bytes().all(|b| b.is_ascii_hexdigit()))
+    a.strip_prefix("0x")
+        .is_some_and(|h| !h.is_empty() && h.len() <= 16 && h.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
 fn jstr(v: &Value, k: &str) -> String {
@@ -915,7 +956,11 @@ pub fn parse_monitors(v: &Value) -> Vec<MonitorInfo> {
                 y: ji32(m, "y", 0),
                 width: ji32(m, "width", 0),
                 height: ji32(m, "height", 0),
-                scale: m.get("scale").and_then(Value::as_f64).filter(|s| *s > 0.0).unwrap_or(1.0),
+                scale: m
+                    .get("scale")
+                    .and_then(Value::as_f64)
+                    .filter(|s| *s > 0.0)
+                    .unwrap_or(1.0),
                 focused: jbool(m, "focused"),
                 active_workspace_id: aw.map_or(0, |w| ji32(w, "id", 0)),
                 active_workspace_name: aw.map(|w| jstr(w, "name")).unwrap_or_default(),
@@ -945,7 +990,7 @@ impl Hypr {
             let sock = e.path().join(".socket.sock");
             if let Ok(m) = fs::metadata(&sock) {
                 let t = m.modified().unwrap_or(SystemTime::UNIX_EPOCH);
-                if best.as_ref().map_or(true, |(bt, _)| t > *bt) {
+                if best.as_ref().is_none_or(|(bt, _)| t > *bt) {
                     best = Some((t, e.path()));
                 }
             }
@@ -959,7 +1004,10 @@ impl Hypr {
         if fs::metadata(&cmd_sock).is_err() {
             return None;
         }
-        Some(Hypr { cmd_sock, evt_sock: dir.join(".socket2.sock") })
+        Some(Hypr {
+            cmd_sock,
+            evt_sock: dir.join(".socket2.sock"),
+        })
     }
 
     /// Raw request on socket1; None on failure or timeout.
@@ -990,7 +1038,9 @@ impl Hypr {
     }
 
     pub fn clients(&self) -> Vec<Window> {
-        self.json_request("j/clients").map(|v| parse_clients(&v)).unwrap_or_default()
+        self.json_request("j/clients")
+            .map(|v| parse_clients(&v))
+            .unwrap_or_default()
     }
 
     pub fn active_window_address(&self) -> Option<String> {
@@ -1004,7 +1054,9 @@ impl Hypr {
     }
 
     pub fn monitors(&self) -> Vec<MonitorInfo> {
-        self.json_request("j/monitors").map(|v| parse_monitors(&v)).unwrap_or_default()
+        self.json_request("j/monitors")
+            .map(|v| parse_monitors(&v))
+            .unwrap_or_default()
     }
 
     /// Number of windows on a workspace. None if Hyprland could not be queried.
@@ -1029,7 +1081,8 @@ impl Hypr {
         if args.contains('\n') || args.trim().is_empty() {
             return false;
         }
-        self.request(&format!("dispatch {args}")).map_or(false, |r| r.trim() == "ok")
+        self.request(&format!("dispatch {args}"))
+            .is_some_and(|r| r.trim() == "ok")
     }
 
     pub fn focus_window(&self, address: &str) -> bool {
@@ -1190,7 +1243,7 @@ pub fn build_entries(
         };
         if let Some(e) = running[i].as_mut() {
             e.windows.push(w.address.clone());
-            if active_address.map_or(false, |a| a.eq_ignore_ascii_case(&w.address)) {
+            if active_address.is_some_and(|a| a.eq_ignore_ascii_case(&w.address)) {
                 e.active = true;
             }
         }
@@ -1231,7 +1284,12 @@ fn read_pinned_file(path: &Path) -> Result<Vec<String>, io::Error> {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "pinned.json is not a list"));
     };
     let mut seen = HashSet::new();
-    Ok(arr.iter().filter_map(Value::as_str).filter(|s| seen.insert(s.to_string())).map(str::to_string).collect())
+    Ok(arr
+        .iter()
+        .filter_map(Value::as_str)
+        .filter(|s| seen.insert(s.to_string()))
+        .map(str::to_string)
+        .collect())
 }
 
 #[derive(Debug)]
@@ -1249,7 +1307,12 @@ impl Pinned {
     pub fn load(path: &Path, catalog: &Catalog) -> Pinned {
         let seed = || seed_pinned(catalog);
         match read_pinned_file(path) {
-            Ok(list) => Pinned { path: path.to_path_buf(), list, stamp: file_stamp(path), corrupt: false },
+            Ok(list) => Pinned {
+                path: path.to_path_buf(),
+                list,
+                stamp: file_stamp(path),
+                corrupt: false,
+            },
             Err(e) => Pinned {
                 path: path.to_path_buf(),
                 list: seed(),
@@ -1292,7 +1355,9 @@ impl Pinned {
 
     /// Moves `id` by `delta` positions (clamped at the ends); false if nothing changes.
     pub fn move_by(&mut self, id: &str, delta: i32) -> bool {
-        let Some(i) = self.list.iter().position(|x| x == id) else { return false };
+        let Some(i) = self.list.iter().position(|x| x == id) else {
+            return false;
+        };
         let last = self.list.len() as i64 - 1;
         let j = (i as i64 + delta as i64).clamp(0, last) as usize;
         if j == i {
@@ -1308,8 +1373,12 @@ impl Pinned {
         if let Some(dir) = self.path.parent().filter(|d| !d.as_os_str().is_empty()) {
             fs::create_dir_all(dir)?;
         }
-        let json = serde_json::to_string_pretty(&self.list).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
-        let mut tmp_name = self.path.file_name().map(|n| n.to_os_string()).unwrap_or_else(|| "pinned.json".into());
+        let json = serde_json::to_string_pretty(&self.list).map_err(io::Error::other)?;
+        let mut tmp_name = self
+            .path
+            .file_name()
+            .map(|n| n.to_os_string())
+            .unwrap_or_else(|| "pinned.json".into());
         tmp_name.push(format!(".tmp{}", std::process::id()));
         let tmp = self.path.with_file_name(tmp_name);
         let res = (|| {
@@ -1363,7 +1432,12 @@ mod tests {
     static N: AtomicU32 = AtomicU32::new(0);
 
     fn tmpdir(tag: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("model-test-{}-{}-{}", std::process::id(), tag, N.fetch_add(1, Ordering::Relaxed)));
+        let d = std::env::temp_dir().join(format!(
+            "model-test-{}-{}-{}",
+            std::process::id(),
+            tag,
+            N.fetch_add(1, Ordering::Relaxed)
+        ));
         let _ = fs::remove_dir_all(&d);
         fs::create_dir_all(&d).unwrap();
         d
@@ -1372,7 +1446,11 @@ mod tests {
     /// Parse context with a German locale: fixtures use tagged values such as
     /// "Firefox Browser [de_DE]" so the tests show which localized key was picked.
     fn ctx_de() -> ParseCtx {
-        ParseCtx { locales: locale_keys("de_DE.UTF-8"), desktops: vec!["Hyprland".into()], check_try_exec: false }
+        ParseCtx {
+            locales: locale_keys("de_DE.UTF-8"),
+            desktops: vec!["Hyprland".into()],
+            check_try_exec: false,
+        }
     }
 
     const FIREFOX: &str = "\
@@ -1416,13 +1494,25 @@ Exec=x
     }
 
     fn win(addr: &str, class: &str, fh: i32) -> Window {
-        Window { address: addr.into(), class: class.into(), title: "t".into(), workspace: "1".into(), focus_history: fh, pid: 1, monitor: 0, mapped: true }
+        Window {
+            address: addr.into(),
+            class: class.into(),
+            title: "t".into(),
+            workspace: "1".into(),
+            focus_history: fh,
+            pid: 1,
+            monitor: 0,
+            mapped: true,
+        }
     }
 
     #[test]
     fn locale_key_expansion() {
         assert_eq!(locale_keys("de_DE.UTF-8"), vec!["de_DE", "de"]);
-        assert_eq!(locale_keys("sr_RS@latin"), vec!["sr_RS@latin", "sr_RS", "sr@latin", "sr"]);
+        assert_eq!(
+            locale_keys("sr_RS@latin"),
+            vec!["sr_RS@latin", "sr_RS", "sr@latin", "sr"]
+        );
         assert_eq!(locale_keys("fr"), vec!["fr"]);
         assert!(locale_keys("C").is_empty());
         assert!(locale_keys("POSIX").is_empty());
@@ -1431,7 +1521,12 @@ Exec=x
 
     #[test]
     fn desktop_localized_names_and_actions() {
-        let Parsed::App(a) = parse_desktop_entry(FIREFOX, Path::new("/v/firefox_firefox.desktop"), "firefox_firefox.desktop", &ctx_de()) else {
+        let Parsed::App(a) = parse_desktop_entry(
+            FIREFOX,
+            Path::new("/v/firefox_firefox.desktop"),
+            "firefox_firefox.desktop",
+            &ctx_de(),
+        ) else {
             panic!("failed to parse")
         };
         assert_eq!(a.name, "Firefox Browser [de_DE]"); // de_DE wins over de
@@ -1442,12 +1537,22 @@ Exec=x
         assert_eq!(a.actions[1].name, "New Private Window [de]");
         assert!(!a.no_display);
         // language-only fallback ("de")
-        let ctx = ParseCtx { locales: locale_keys("de_AT"), ..ctx_de() };
-        let Parsed::App(b) = parse_desktop_entry(FIREFOX, Path::new("/p"), "f.desktop", &ctx) else { panic!() };
+        let ctx = ParseCtx {
+            locales: locale_keys("de_AT"),
+            ..ctx_de()
+        };
+        let Parsed::App(b) = parse_desktop_entry(FIREFOX, Path::new("/p"), "f.desktop", &ctx) else {
+            panic!()
+        };
         assert_eq!(b.name, "Firefox Browser [de]");
         // no locale
-        let ctx = ParseCtx { locales: vec![], ..ctx_de() };
-        let Parsed::App(c) = parse_desktop_entry(FIREFOX, Path::new("/p"), "f.desktop", &ctx) else { panic!() };
+        let ctx = ParseCtx {
+            locales: vec![],
+            ..ctx_de()
+        };
+        let Parsed::App(c) = parse_desktop_entry(FIREFOX, Path::new("/p"), "f.desktop", &ctx) else {
+            panic!()
+        };
         assert_eq!(c.name, "Firefox Web Browser");
         assert_eq!(c.actions[0].name, "New Window");
     }
@@ -1468,8 +1573,18 @@ Exec=x
         assert!(matches!(parse_desktop_entry(hid, p, "x.desktop", &ctx), Parsed::Hidden));
         let dir = "[Desktop Entry]\nType=Directory\nName=X\n";
         assert!(matches!(parse_desktop_entry(dir, p, "x.desktop", &ctx), Parsed::Skip));
-        for junk in ["", "\u{0}\u{1}garbage", "[Desktop Entry", "Name=X\nExec=y", "[Desktop Entry]\nName=\nExec=y", "[Desktop Entry]\nName=X"] {
-            assert!(matches!(parse_desktop_entry(junk, p, "j.desktop", &ctx), Parsed::Skip), "{junk:?}");
+        for junk in [
+            "",
+            "\u{0}\u{1}garbage",
+            "[Desktop Entry",
+            "Name=X\nExec=y",
+            "[Desktop Entry]\nName=\nExec=y",
+            "[Desktop Entry]\nName=X",
+        ] {
+            assert!(
+                matches!(parse_desktop_entry(junk, p, "j.desktop", &ctx), Parsed::Skip),
+                "{junk:?}"
+            );
         }
         let only = "[Desktop Entry]\nName=X\nExec=x\nOnlyShowIn=GNOME;KDE;\n";
         match parse_desktop_entry(only, p, "x.desktop", &ctx) {
@@ -1491,7 +1606,10 @@ Exec=x
             Parsed::App(a) => assert_eq!(a.name, "A B"),
             o => panic!("{o:?}"),
         }
-        let te = ParseCtx { check_try_exec: true, ..ctx };
+        let te = ParseCtx {
+            check_try_exec: true,
+            ..ctx
+        };
         let bad = "[Desktop Entry]\nName=X\nExec=x\nTryExec=/definitely/not/here\n";
         assert!(matches!(parse_desktop_entry(bad, p, "t.desktop", &te), Parsed::Skip));
         let good = "[Desktop Entry]\nName=X\nExec=x\nTryExec=sh\n";
@@ -1509,56 +1627,112 @@ Exec=x
             fs::write(d.join(f), body).unwrap();
         };
         w(&user, "kitty.desktop", "[Desktop Entry]\nName=Kitty user\nExec=kitty\n");
-        w(&sys, "kitty.desktop", "[Desktop Entry]\nName=Kitty system\nExec=kitty\n");
-        w(&user, "gone.desktop", "[Desktop Entry]\nName=Gone\nExec=g\nHidden=true\n");
+        w(
+            &sys,
+            "kitty.desktop",
+            "[Desktop Entry]\nName=Kitty system\nExec=kitty\n",
+        );
+        w(
+            &user,
+            "gone.desktop",
+            "[Desktop Entry]\nName=Gone\nExec=g\nHidden=true\n",
+        );
         w(&sys, "gone.desktop", "[Desktop Entry]\nName=Gone system\nExec=g\n");
         w(&sys, "firefox_firefox.desktop", FIREFOX);
-        w(&sys, "org.gnome.Nautilus.desktop", "[Desktop Entry]\nName=Files\nExec=nautilus\n");
-        w(&sys, "code-url-handler.desktop", "[Desktop Entry]\nName=Code URL\nExec=code\nNoDisplay=true\nStartupWMClass=Code\n");
-        w(&sys, "com.microsoft.VSCode.desktop", "[Desktop Entry]\nName=zeta Visual Studio Code\nExec=code\nStartupWMClass=Code\n");
+        w(
+            &sys,
+            "org.gnome.Nautilus.desktop",
+            "[Desktop Entry]\nName=Files\nExec=nautilus\n",
+        );
+        w(
+            &sys,
+            "code-url-handler.desktop",
+            "[Desktop Entry]\nName=Code URL\nExec=code\nNoDisplay=true\nStartupWMClass=Code\n",
+        );
+        w(
+            &sys,
+            "com.microsoft.VSCode.desktop",
+            "[Desktop Entry]\nName=zeta Visual Studio Code\nExec=code\nStartupWMClass=Code\n",
+        );
         w(&sys, "sub/inner.desktop", "[Desktop Entry]\nName=Inner\nExec=i\n");
         w(&sys, "readme.txt", "not a desktop file");
         w(&sys, "broken.desktop", "\u{0}\u{0}");
         w(&sys, "Apple.desktop", "[Desktop Entry]\nName=apple\nExec=a\n");
         let cat = Catalog::from_dirs(&[user.clone(), sys.clone()], &ctx_de());
         assert_eq!(cat.get("kitty.desktop").unwrap().name, "Kitty user");
-        assert!(cat.get("gone.desktop").is_none(), "Hidden=true in the user dir shadows the system one");
+        assert!(
+            cat.get("gone.desktop").is_none(),
+            "Hidden=true in the user dir shadows the system one"
+        );
         assert!(cat.get("sub-inner.desktop").is_some());
         assert!(cat.get("readme.txt").is_none());
         assert_eq!(cat.get("kitty").unwrap().id, "kitty.desktop");
         // match_class rules
         assert_eq!(cat.match_class("kitty").unwrap().id, "kitty.desktop");
         assert_eq!(cat.match_class("KITTY").unwrap().id, "kitty.desktop");
-        assert_eq!(cat.match_class("firefox_firefox").unwrap().id, "firefox_firefox.desktop");
+        assert_eq!(
+            cat.match_class("firefox_firefox").unwrap().id,
+            "firefox_firefox.desktop"
+        );
         assert_eq!(cat.match_class("firefox").unwrap().id, "firefox_firefox.desktop"); // snap-style part of the id
-        assert_eq!(cat.match_class("org.gnome.Nautilus").unwrap().id, "org.gnome.Nautilus.desktop");
+        assert_eq!(
+            cat.match_class("org.gnome.Nautilus").unwrap().id,
+            "org.gnome.Nautilus.desktop"
+        );
         assert_eq!(cat.match_class("nautilus").unwrap().id, "org.gnome.Nautilus.desktop"); // last dotted component
-        assert_eq!(cat.match_class("Code").unwrap().id, "com.microsoft.VSCode.desktop", "the visible app wins by StartupWMClass");
+        assert_eq!(
+            cat.match_class("Code").unwrap().id,
+            "com.microsoft.VSCode.desktop",
+            "the visible app wins by StartupWMClass"
+        );
         assert!(cat.match_class("nonexistent").is_none());
         assert!(cat.match_class("").is_none());
         // visible(): sorted case-insensitively, without NoDisplay apps
         let vis: Vec<&str> = cat.visible().iter().map(|a| a.name.as_str()).collect();
         assert!(!vis.contains(&"Code URL"));
-        assert_eq!(vis, vec!["apple", "Files", "Firefox Browser [de_DE]", "Inner", "Kitty user", "zeta Visual Studio Code"]);
+        assert_eq!(
+            vis,
+            vec![
+                "apple",
+                "Files",
+                "Firefox Browser [de_DE]",
+                "Inner",
+                "Kitty user",
+                "zeta Visual Studio Code"
+            ]
+        );
         let _ = fs::remove_dir_all(&user);
         let _ = fs::remove_dir_all(&sys);
     }
 
     #[test]
     fn exec_parsing_and_launch_commands() {
-        assert_eq!(split_exec(r#"env A=1 "my prog" --x "a b" 'c'"#), vec!["env", "A=1", "my prog", "--x", "a b", "'c'"]);
+        assert_eq!(
+            split_exec(r#"env A=1 "my prog" --x "a b" 'c'"#),
+            vec!["env", "A=1", "my prog", "--x", "a b", "'c'"]
+        );
         assert_eq!(split_exec(r#"sh -c "echo \"hi\"""#), vec!["sh", "-c", "echo \"hi\""]);
         assert_eq!(split_exec(""), Vec::<String>::new());
         assert_eq!(split_exec(r#"a "" b"#), vec!["a", "", "b"]);
         let mut a = app("t.desktop", "Term", None, false);
         a.icon = "ico".into();
-        assert_eq!(expand_exec("kitty %U %f --class=%c %i %k 100%%", &a), vec!["kitty", "--class=Term", "--icon", "ico", "/x/t.desktop", "100%"]);
+        assert_eq!(
+            expand_exec("kitty %U %f --class=%c %i %k 100%%", &a),
+            vec!["kitty", "--class=Term", "--icon", "ico", "/x/t.desktop", "100%"]
+        );
         assert_eq!(expand_exec("foo --file=%f %F", &a), vec!["foo", "--file="]);
         a.exec = "kitty %U".into();
-        a.actions = vec![AppAction { id: "nw".into(), name: "New".into(), exec: "kitty --single-instance %U".into() }];
+        a.actions = vec![AppAction {
+            id: "nw".into(),
+            name: "New".into(),
+            exec: "kitty --single-instance %U".into(),
+        }];
         assert_eq!(launch_commands(&a, None)[0], vec!["gio", "launch", "/x/t.desktop"]);
         assert_eq!(launch_commands(&a, None)[1], vec!["kitty"]);
-        assert_eq!(launch_commands(&a, Some("nw")), vec![vec!["kitty", "--single-instance"]]);
+        assert_eq!(
+            launch_commands(&a, Some("nw")),
+            vec![vec!["kitty", "--single-instance"]]
+        );
         assert!(launch_commands(&a, Some("nope")).is_empty());
         assert!(!launch(&a, Some("nope")));
     }
@@ -1567,11 +1741,17 @@ Exec=x
     fn event_parser_partial_lines() {
         let mut p = EventParser::new();
         assert!(p.push(b"openwin").is_empty());
-        assert_eq!(p.push(b"dow>>abc,1,kitty,t\nworkspace>>2\nfocus"), vec!["openwindow", "workspace"]);
+        assert_eq!(
+            p.push(b"dow>>abc,1,kitty,t\nworkspace>>2\nfocus"),
+            vec!["openwindow", "workspace"]
+        );
         assert_eq!(p.push(b"edmon>>DP-1,1\n"), vec!["focusedmon"]);
         assert_eq!(p.push(b"configreloaded>>\n"), vec!["configreloaded"]);
         // a line without ">>" (continuation of a title containing a newline) is ignored
-        assert_eq!(p.push(b"windowtitle>>a\ncontinuation\nurgent>>1\n"), vec!["windowtitle", "urgent"]);
+        assert_eq!(
+            p.push(b"windowtitle>>a\ncontinuation\nurgent>>1\n"),
+            vec!["windowtitle", "urgent"]
+        );
         // invalid UTF-8 bytes
         assert_eq!(p.push(b"windowtitle>>\xff\xfe\n"), vec!["windowtitle"]);
         // a huge line without a newline must not grow without bound
@@ -1595,10 +1775,16 @@ Exec=x
             app("code.desktop", "Code", Some("Code"), false),
             app("spotify_spotify.desktop", "Spotify", None, false),
         ]);
-        let pinned: Vec<String> = ["kitty.desktop", "missing.desktop", "spotify_spotify.desktop", "kitty.desktop", "code.desktop"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let pinned: Vec<String> = [
+            "kitty.desktop",
+            "missing.desktop",
+            "spotify_spotify.desktop",
+            "kitty.desktop",
+            "code.desktop",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
         let mut hidden = win("0xh", "kitty", 0);
         hidden.mapped = false;
         let wins = vec![
@@ -1615,7 +1801,16 @@ Exec=x
         let keys: Vec<&str> = es.iter().map(|e| e.key.as_str()).collect();
         // pinned apps in pin order (kitty, spotify even though it is not running, code),
         // then Weird.App (focus 0), then firefox
-        assert_eq!(keys, vec!["kitty.desktop", "spotify_spotify.desktop", "code.desktop", "class:Weird.App", "firefox_firefox.desktop"]);
+        assert_eq!(
+            keys,
+            vec![
+                "kitty.desktop",
+                "spotify_spotify.desktop",
+                "code.desktop",
+                "class:Weird.App",
+                "firefox_firefox.desktop"
+            ]
+        );
         assert_eq!(es[0].windows, vec!["0x2", "0x4"]);
         assert!(es[0].pinned && es[0].active);
         assert!(es[1].pinned && es[1].windows.is_empty() && !es[1].active);
@@ -1633,7 +1828,10 @@ Exec=x
         let mut noicon = app("n.desktop", "N", None, false);
         noicon.icon.clear();
         let cat2 = Catalog::from_apps(vec![noicon]);
-        assert_eq!(build_entries(&cat2, &["n.desktop".to_string()], &[], None)[0].icon, "application-x-executable");
+        assert_eq!(
+            build_entries(&cat2, &["n.desktop".to_string()], &[], None)[0].icon,
+            "application-x-executable"
+        );
     }
 
     #[test]
@@ -1651,7 +1849,10 @@ Exec=x
         assert!(!p.pin("a.desktop"));
         assert!(p.pin("b.desktop"));
         assert!(p.move_by("b.desktop", -2));
-        assert_eq!(p.list(), &["kitty.desktop", "b.desktop", "firefox_firefox.desktop", "a.desktop"]);
+        assert_eq!(
+            p.list(),
+            &["kitty.desktop", "b.desktop", "firefox_firefox.desktop", "a.desktop"]
+        );
         assert!(!p.move_by("kitty.desktop", -1)); // already at the start
         assert!(p.move_by("kitty.desktop", 99)); // clamps at the end
         assert_eq!(p.list().last().unwrap(), "kitty.desktop");
@@ -1684,7 +1885,10 @@ Exec=x
         let mut c = Pinned::load(&path, &cat);
         assert_eq!(c.list().len(), 2);
         c.save().unwrap();
-        assert_eq!(fs::read_to_string(dir.join("sub").join("pinned.json.bak")).unwrap(), "{not json");
+        assert_eq!(
+            fs::read_to_string(dir.join("sub").join("pinned.json.bak")).unwrap(),
+            "{not json"
+        );
         // external deletion: the list is not emptied
         fs::remove_file(&path).unwrap();
         assert!(!c.reload_if_changed());
@@ -1695,7 +1899,17 @@ Exec=x
     #[test]
     fn seed_table_is_well_formed() {
         let categories: Vec<&str> = SEED_CATEGORIES.iter().map(|(c, _)| *c).collect();
-        assert_eq!(categories, ["terminal", "web browser", "file manager", "code editor", "music", "settings"]);
+        assert_eq!(
+            categories,
+            [
+                "terminal",
+                "web browser",
+                "file manager",
+                "code editor",
+                "music",
+                "settings"
+            ]
+        );
         let mut all = HashSet::new();
         for (category, ids) in SEED_CATEGORIES {
             assert!(!ids.is_empty(), "category {category:?} has no candidates");
@@ -1749,7 +1963,10 @@ Exec=x
     #[test]
     fn pinned_load_seeds_only_without_a_valid_file() {
         let dir = tmpdir("seed");
-        let cat = Catalog::from_apps(vec![app("kitty.desktop", "K", None, false), app("foot.desktop", "F", None, false)]);
+        let cat = Catalog::from_apps(vec![
+            app("kitty.desktop", "K", None, false),
+            app("foot.desktop", "F", None, false),
+        ]);
         // missing file: seed (one terminal only)
         let missing = Pinned::load(&dir.join("missing.json"), &cat);
         assert_eq!(missing.list(), &["kitty.desktop"]);
@@ -1791,7 +2008,9 @@ Exec=x
                 let n = c.read(&mut buf).unwrap_or(0);
                 let req = String::from_utf8_lossy(&buf[..n]).into_owned();
                 let body = match req.as_str() {
-                    "j/clients" => r#"[{"address":"0xa","class":"kitty","mapped":true,"workspace":{"id":1,"name":"1"}}]"#,
+                    "j/clients" => {
+                        r#"[{"address":"0xa","class":"kitty","mapped":true,"workspace":{"id":1,"name":"1"}}]"#
+                    }
                     "j/activewindow" => "{}",
                     "j/workspaces" => r#"[{"id":1,"windows":0},{"id":2,"windows":3}]"#,
                     "dispatch focuswindow address:0xa" => "ok",
@@ -1886,9 +2105,21 @@ Exec=x
         .unwrap();
         let w = parse_clients(&clients);
         assert_eq!(w.len(), 3);
-        assert_eq!((w[0].workspace.as_str(), w[0].pid, w[0].monitor, w[0].focus_history, w[0].mapped), ("3", 42, 1, 0, true));
+        assert_eq!(
+            (
+                w[0].workspace.as_str(),
+                w[0].pid,
+                w[0].monitor,
+                w[0].focus_history,
+                w[0].mapped
+            ),
+            ("3", 42, 1, 0, true)
+        );
         assert_eq!((w[1].class.as_str(), w[1].mapped, w[1].focus_history), ("", false, -1));
-        assert_eq!((w[2].workspace.as_str(), w[2].pid, w[2].focus_history), ("-98", 1000, -1));
+        assert_eq!(
+            (w[2].workspace.as_str(), w[2].pid, w[2].focus_history),
+            ("-98", 1000, -1)
+        );
         assert!(parse_clients(&Value::Null).is_empty());
         assert!(parse_clients(&serde_json::json!({"a": 1})).is_empty());
         let mons: Value = serde_json::from_str(
@@ -1899,7 +2130,10 @@ Exec=x
         let m = parse_monitors(&mons);
         assert_eq!(m.len(), 2);
         assert_eq!((m[0].logical_width(), m[0].logical_height()), (1600, 1000));
-        assert_eq!((m[0].active_workspace_id, m[0].active_workspace_name.as_str()), (1, "1"));
+        assert_eq!(
+            (m[0].active_workspace_id, m[0].active_workspace_name.as_str()),
+            (1, "1")
+        );
         assert_eq!(m[1].scale, 1.0);
         assert!(is_valid_address("0x5af195a78f70"));
         assert!(!is_valid_address("0x"));

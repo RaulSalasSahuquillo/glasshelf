@@ -1,5 +1,7 @@
 //! GlassDock: a liquid-glass dock for Hyprland with macOS-style magnification (GLES, layer-shell).
 //! A single process, one surface per monitor, redraws only on demand (0 % CPU when idle).
+// `as_chunks` is too recent to require from users building with an older stable toolchain.
+#![allow(clippy::chunks_exact_to_as_chunks)]
 mod capture;
 mod dock;
 mod gfx;
@@ -8,12 +10,11 @@ mod model;
 mod raster;
 
 use anyhow::{anyhow, Result};
-use i18n::{tr, Msg};
 use dock::{Kind, Layout, Slot, ADD_BASE, BOTTOM_GAP, HIDE_DELAY, ICON, PAD_BOTTOM, PANEL_H};
+use i18n::{tr, Msg};
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState, Region},
-    delegate_compositor, delegate_layer, delegate_output, delegate_pointer, delegate_registry,
-    delegate_seat,
+    delegate_compositor, delegate_layer, delegate_output, delegate_pointer, delegate_registry, delegate_seat,
     output::{OutputHandler, OutputState},
     reexports::{
         calloop::{
@@ -46,7 +47,9 @@ use smithay_client_toolkit::{
         Capability, SeatHandler, SeatState,
     },
     shell::{
-        wlr_layer::{Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure},
+        wlr_layer::{
+            Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface, LayerSurfaceConfigure,
+        },
         WaylandSurface,
     },
 };
@@ -115,7 +118,11 @@ impl Menu {
     fn row_geom(&self, i: usize) -> (f32, f32) {
         let mut y = self.rect[1] + MENU_PAD;
         for (j, it) in self.items.iter().enumerate() {
-            let h = if matches!(it.kind, ItemKind::Sep) { MENU_SEP } else { MENU_ROW };
+            let h = if matches!(it.kind, ItemKind::Sep) {
+                MENU_SEP
+            } else {
+                MENU_ROW
+            };
             if j == i {
                 return (y, h);
             }
@@ -260,7 +267,8 @@ Run it through `glassdock-launch` to keep it alive, and control it with `glassdo
 ";
 
 fn main() -> Result<()> {
-    for arg in std::env::args().skip(1) {
+    // The dock takes no arguments besides --help and --version, so only the first one matters.
+    if let Some(arg) = std::env::args().nth(1) {
         match arg.as_str() {
             "-V" | "--version" => {
                 println!("glassdock {}", env!("CARGO_PKG_VERSION"));
@@ -283,9 +291,12 @@ fn main() -> Result<()> {
             std::env::set_var("__EGL_VENDOR_LIBRARY_FILENAMES", mesa);
         }
     }
-    let filter = std::env::var("GLASSDOCK_OUTPUTS")
-        .ok()
-        .map(|s| s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect::<Vec<_>>());
+    let filter = std::env::var("GLASSDOCK_OUTPUTS").ok().map(|s| {
+        s.split(',')
+            .map(|x| x.trim().to_string())
+            .filter(|x| !x.is_empty())
+            .collect::<Vec<_>>()
+    });
 
     let conn = Connection::connect_to_env().map_err(|e| anyhow!("no Wayland connection: {e}"))?;
     let (globals, event_queue) = registry_queue_init::<App>(&conn).map_err(|e| anyhow!("registry: {e}"))?;
@@ -463,7 +474,10 @@ impl App {
             dbg_log("output without info yet");
             return;
         };
-        dbg_log(&format!("output id={} name={:?} logical_size={:?} scale={}", info.id, info.name, info.logical_size, info.scale_factor));
+        dbg_log(&format!(
+            "output id={} name={:?} logical_size={:?} scale={}",
+            info.id, info.name, info.logical_size, info.scale_factor
+        ));
         let Some(name) = info.name.clone() else { return };
         if let Some(f) = &self.filter {
             if !f.iter().any(|x| x == &name) {
@@ -472,7 +486,13 @@ impl App {
         }
         let out_size = info.logical_size.unwrap_or((1600, 1000));
         let surface = self.compositor.create_surface(&self.qh);
-        let layer = self.layer_shell.create_layer_surface(&self.qh, surface.clone(), Layer::Top, Some("glassdock"), Some(output));
+        let layer = self.layer_shell.create_layer_surface(
+            &self.qh,
+            surface.clone(),
+            Layer::Top,
+            Some("glassdock"),
+            Some(output),
+        );
         layer.set_anchor(Anchor::BOTTOM);
         layer.set_exclusive_zone(-1);
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
@@ -483,7 +503,10 @@ impl App {
         let id = self.view_serial;
         self.view_serial += 1;
         let viewport = self.viewporter.as_ref().map(|v| v.get_viewport(&surface, &self.qh, ()));
-        let frac = self.frac_mgr.as_ref().map(|m| m.get_fractional_scale(&surface, &self.qh, ViewId(self.views.len())));
+        let frac = self
+            .frac_mgr
+            .as_ref()
+            .map(|m| m.get_fractional_scale(&surface, &self.qh, ViewId(self.views.len())));
         layer.commit();
         let _ = id;
         self.views.push(View {
@@ -530,7 +553,11 @@ impl App {
         }
         if !v.egl_win.is_null() {
             unsafe {
-                wayland_sys::ffi_dispatch!(wayland_sys::egl::wayland_egl_handle(), wl_egl_window_destroy, v.egl_win as *mut _);
+                wayland_sys::ffi_dispatch!(
+                    wayland_sys::egl::wayland_egl_handle(),
+                    wl_egl_window_destroy,
+                    v.egl_win as *mut _
+                );
             }
         }
         if let (Some(g), Some(t)) = (self.gfx.as_ref(), v.backdrop) {
@@ -559,7 +586,15 @@ impl App {
         }
         if self.views[vi].egl_win.is_null() {
             let proxy = self.views[vi].layer.wl_surface().id().as_ptr();
-            let win = unsafe { wayland_sys::ffi_dispatch!(wayland_sys::egl::wayland_egl_handle(), wl_egl_window_create, proxy, bw, bh) };
+            let win = unsafe {
+                wayland_sys::ffi_dispatch!(
+                    wayland_sys::egl::wayland_egl_handle(),
+                    wl_egl_window_create,
+                    proxy,
+                    bw,
+                    bh
+                )
+            };
             if win.is_null() {
                 return Err(anyhow!("wl_egl_window_create failed"));
             }
@@ -574,13 +609,24 @@ impl App {
                 let egl = &self.egl;
                 let gl = unsafe { glow::Context::from_loader_function(|n| egl.proc_address(n)) };
                 let g = gfx::Gfx::new(gl, Some(GLASS_VS), Some(GLASS_FS))?;
-                eprintln!("GL ready (glass: {})", if g.glass_is_fallback { "fallback" } else { "shader" });
+                eprintln!(
+                    "GL ready (glass: {})",
+                    if g.glass_is_fallback { "fallback" } else { "shader" }
+                );
                 self.gfx = Some(g);
                 self.sync_icons();
             }
         } else if self.views[vi].buf != (bw, bh) {
             unsafe {
-                wayland_sys::ffi_dispatch!(wayland_sys::egl::wayland_egl_handle(), wl_egl_window_resize, self.views[vi].egl_win as *mut _, bw, bh, 0, 0);
+                wayland_sys::ffi_dispatch!(
+                    wayland_sys::egl::wayland_egl_handle(),
+                    wl_egl_window_resize,
+                    self.views[vi].egl_win as *mut _,
+                    bw,
+                    bh,
+                    0,
+                    0
+                );
             }
             self.views[vi].buf = (bw, bh);
             self.views[vi].backdrop_stale = true;
@@ -654,7 +700,9 @@ impl App {
         if self.gfx.is_none() {
             return;
         }
-        let Some(vi) = (0..self.views.len()).find(|&i| self.views[i].egl_surf.is_some()) else { return };
+        let Some(vi) = (0..self.views.len()).find(|&i| self.views[i].egl_surf.is_some()) else {
+            return;
+        };
         if !self.make_current(vi) {
             return;
         }
@@ -675,10 +723,13 @@ impl App {
         let names = self.parser.push(data);
         if names.iter().any(|n| model::EventParser::is_relevant(n)) && !self.refresh_scheduled {
             self.refresh_scheduled = true;
-            let _ = self.loop_handle.insert_source(Timer::from_duration(Duration::from_millis(80)), |_, _, app: &mut App| {
-                app.refresh();
-                TimeoutAction::Drop
-            });
+            let _ = self.loop_handle.insert_source(
+                Timer::from_duration(Duration::from_millis(80)),
+                |_, _, app: &mut App| {
+                    app.refresh();
+                    TimeoutAction::Drop
+                },
+            );
         }
     }
 
@@ -694,12 +745,14 @@ impl App {
     }
 
     fn schedule_wake(&mut self, d: Duration) {
-        let _ = self.loop_handle.insert_source(Timer::from_duration(d), |_, _, app: &mut App| {
-            for vi in 0..app.views.len() {
-                app.request_redraw(vi);
-            }
-            TimeoutAction::Drop
-        });
+        let _ = self
+            .loop_handle
+            .insert_source(Timer::from_duration(d), |_, _, app: &mut App| {
+                for vi in 0..app.views.len() {
+                    app.request_redraw(vi);
+                }
+                TimeoutAction::Drop
+            });
     }
 
     fn menu_released(&mut self) {
@@ -734,7 +787,14 @@ impl App {
         let y = oh - h;
         let data = CaptureData {
             view: vi,
-            st: Mutex::new(CapState { fmt: None, w: 0, h: 0, stride: 0, y_invert: false, buf: None }),
+            st: Mutex::new(CapState {
+                fmt: None,
+                w: 0,
+                h: 0,
+                stride: 0,
+                y_invert: false,
+                buf: None,
+            }),
         };
         mgr.capture_output_region(0, &v.output, x, y, w, h, &self.qh, data);
     }
@@ -804,7 +864,7 @@ impl App {
                     }
                 }
             }
-            let need = v.backdrop_stale || v.backdrop_time.map_or(true, |t| now.duration_since(t) > BACKDROP_MAX_AGE);
+            let need = v.backdrop_stale || v.backdrop_time.is_none_or(|t| now.duration_since(t) > BACKDROP_MAX_AGE);
             let r = v.layout.step(dt, now, need && have_screencopy, v.capturing);
             (r.busy, r.start_capture)
         };
@@ -856,7 +916,10 @@ impl App {
         if v.region_sig == Some(sig) {
             return;
         }
-        dbg_log(&format!("input region {:?} -> {:?} (reveal {:.2})", v.region_sig, sig, v.layout.reveal));
+        dbg_log(&format!(
+            "input region {:?} -> {:?} (reveal {:.2})",
+            v.region_sig, sig, v.layout.reveal
+        ));
         v.region_sig = Some(sig);
         if let Ok(r) = Region::new(&self.compositor) {
             r.add(x, y, w.max(1), h.max(1));
@@ -884,7 +947,12 @@ impl App {
         let margin = 48.0 * scale;
         let qx = (panel_px[0] - margin).max(0.0);
         let qy = (panel_px[1] - margin).max(0.0);
-        let quad = [qx, qy, (panel_px[2] + 2.0 * margin).min(surf.0 - qx), (panel_px[3] + 2.0 * margin + 20.0 * scale).min(surf.1 - qy)];
+        let quad = [
+            qx,
+            qy,
+            (panel_px[2] + 2.0 * margin).min(surf.0 - qx),
+            (panel_px[3] + 2.0 * margin + 20.0 * scale).min(surf.1 - qy),
+        ];
         let t = now.duration_since(self.start).as_secs_f32();
         {
             let g = self.gfx.as_ref().unwrap();
@@ -894,9 +962,26 @@ impl App {
                     Some((px, py)) => (px * scale, py * scale, hover),
                     None => (-1000.0, -1000.0, 0.0),
                 };
-                g.glass(surf, bd, panel_px, quad, scale, (0.0, (rest_top - pg.top) * scale), ptr, lum, t);
+                g.glass(
+                    surf,
+                    bd,
+                    panel_px,
+                    quad,
+                    scale,
+                    (0.0, (rest_top - pg.top) * scale),
+                    ptr,
+                    lum,
+                    t,
+                );
             } else {
-                g.shape(surf, panel_px, panel_px[3] * 0.5, [0.05, 0.055, 0.08, 0.80], [0.04, 0.04, 0.05, 0.25], 1.0 * scale);
+                g.shape(
+                    surf,
+                    panel_px,
+                    panel_px[3] * 0.5,
+                    [0.05, 0.055, 0.08, 0.80],
+                    [0.04, 0.04, 0.05, 0.25],
+                    1.0 * scale,
+                );
             }
         }
 
@@ -913,11 +998,20 @@ impl App {
             for (si, s) in slots.iter().enumerate() {
                 match s.kind {
                     Kind::Sep => {
-                        let c = if bright { [0.10, 0.11, 0.18, 0.28] } else { [1.0, 1.0, 1.0, 0.22] };
+                        let c = if bright {
+                            [0.10, 0.11, 0.18, 0.28]
+                        } else {
+                            [1.0, 1.0, 1.0, 0.22]
+                        };
                         let a = c[3];
                         g.shape(
                             surf,
-                            [(s.x + s.w / 2.0) * scale - 0.5 * scale, (pg.top + 14.0) * scale, 1.0 * scale, (PANEL_H - 28.0) * scale],
+                            [
+                                (s.x + s.w / 2.0) * scale - 0.5 * scale,
+                                (pg.top + 14.0) * scale,
+                                1.0 * scale,
+                                (PANEL_H - 28.0) * scale,
+                            ],
                             0.0,
                             [c[0] * a, c[1] * a, c[2] * a, a],
                             [0.0; 4],
@@ -929,16 +1023,38 @@ impl App {
                         let x = s.x * scale;
                         let y = icon_bottom - size;
                         let (fill, stroke, plus) = if bright {
-                            ([0.0, 0.0, 0.0, 0.07], [0.04, 0.044, 0.072, 0.40], [0.09, 0.10, 0.16, 0.9])
+                            (
+                                [0.0, 0.0, 0.0, 0.07],
+                                [0.04, 0.044, 0.072, 0.40],
+                                [0.09, 0.10, 0.16, 0.9],
+                            )
                         } else {
-                            ([0.10, 0.10, 0.10, 0.10], [0.28, 0.28, 0.28, 0.28], [C_FG[0] * 0.9, C_FG[1] * 0.9, C_FG[2] * 0.9, 0.9])
+                            (
+                                [0.10, 0.10, 0.10, 0.10],
+                                [0.28, 0.28, 0.28, 0.28],
+                                [C_FG[0] * 0.9, C_FG[1] * 0.9, C_FG[2] * 0.9, 0.9],
+                            )
                         };
                         g.shape(surf, [x, y, size, size], size / 2.0, fill, stroke, 1.0 * scale);
                         let k = size * 0.22;
                         let th = (size * 0.055).max(1.5 * scale);
                         let (cx, cy) = (x + size / 2.0, y + size / 2.0);
-                        g.shape(surf, [cx - k, cy - th / 2.0, 2.0 * k, th], th / 2.0, plus, [0.0; 4], 0.0);
-                        g.shape(surf, [cx - th / 2.0, cy - k, th, 2.0 * k], th / 2.0, plus, [0.0; 4], 0.0);
+                        g.shape(
+                            surf,
+                            [cx - k, cy - th / 2.0, 2.0 * k, th],
+                            th / 2.0,
+                            plus,
+                            [0.0; 4],
+                            0.0,
+                        );
+                        g.shape(
+                            surf,
+                            [cx - th / 2.0, cy - k, th, 2.0 * k],
+                            th / 2.0,
+                            plus,
+                            [0.0; 4],
+                            0.0,
+                        );
                     }
                     Kind::App => {
                         let bounce = v.layout.bounce_offset(&s.key, now);
@@ -955,10 +1071,21 @@ impl App {
                                 let cy = panel_bottom - (PAD_BOTTOM / 2.0 - 1.0) * scale;
                                 if e.active {
                                     let (w, h) = (14.0 * scale, 4.0 * scale);
-                                    g.shape(surf, [cx - w / 2.0, cy - h / 2.0, w, h], h / 2.0, [C_BLUE[0] * 0.95, C_BLUE[1] * 0.95, C_BLUE[2] * 0.95, 0.95], [0.0; 4], 0.0);
+                                    g.shape(
+                                        surf,
+                                        [cx - w / 2.0, cy - h / 2.0, w, h],
+                                        h / 2.0,
+                                        [C_BLUE[0] * 0.95, C_BLUE[1] * 0.95, C_BLUE[2] * 0.95, 0.95],
+                                        [0.0; 4],
+                                        0.0,
+                                    );
                                 } else {
                                     let r = 2.2 * scale;
-                                    let c = if bright { [0.065, 0.07, 0.117, 0.65] } else { [0.55, 0.55, 0.55, 0.55] };
+                                    let c = if bright {
+                                        [0.065, 0.07, 0.117, 0.65]
+                                    } else {
+                                        [0.55, 0.55, 0.55, 0.55]
+                                    };
                                     g.shape(surf, [cx - r, cy - r, 2.0 * r, 2.0 * r], r, c, [0.0; 4], 0.0);
                                 }
                             }
@@ -989,10 +1116,23 @@ impl App {
                             let x = (cx - pw / 2.0).clamp(4.0 * scale, (surf.0 - pw - 4.0 * scale).max(4.0 * scale));
                             let y = icon_bottom - s.w * scale - 16.0 * scale - ph;
                             let a = label_alpha;
-                            g.shape(surf, [x, y, pw, ph], ph / 2.0, [0.055 * a, 0.062 * a, 0.094 * a, 0.78 * a], [0.16 * a, 0.16 * a, 0.16 * a, 0.16 * a], 1.0 * scale);
+                            g.shape(
+                                surf,
+                                [x, y, pw, ph],
+                                ph / 2.0,
+                                [0.055 * a, 0.062 * a, 0.094 * a, 0.78 * a],
+                                [0.16 * a, 0.16 * a, 0.16 * a, 0.16 * a],
+                                1.0 * scale,
+                            );
                             let key = (text.clone(), (13.0 * scale * 10.0) as u32, true);
                             if let Some((t, _, _)) = self.labels.get(&key) {
-                                g.texture(surf, t, [x + 13.0 * scale, y + 7.0 * scale, tw as f32, th as f32], [C_FG[0] * a, C_FG[1] * a, C_FG[2] * a, a], true);
+                                g.texture(
+                                    surf,
+                                    t,
+                                    [x + 13.0 * scale, y + 7.0 * scale, tw as f32, th as f32],
+                                    [C_FG[0] * a, C_FG[1] * a, C_FG[2] * a, a],
+                                    true,
+                                );
                             }
                         }
                     }
@@ -1004,7 +1144,9 @@ impl App {
     }
 
     fn render_menu(&mut self, vi: usize, surf: (f32, f32), scale: f32) {
-        let Some(menu) = self.views[vi].menu.as_ref() else { return };
+        let Some(menu) = self.views[vi].menu.as_ref() else {
+            return;
+        };
         let items = menu.items.clone();
         let rect = menu.rect;
         let hover = menu.hover;
@@ -1016,17 +1158,48 @@ impl App {
         }
         let g = self.gfx.as_ref().unwrap();
         let r = [rect[0] * scale, rect[1] * scale, rect[2] * scale, rect[3] * scale];
-        g.shape(surf, r, 14.0 * scale, [0.067, 0.071, 0.105, 0.95], [0.18, 0.18, 0.20, 0.20], 1.0 * scale);
+        g.shape(
+            surf,
+            r,
+            14.0 * scale,
+            [0.067, 0.071, 0.105, 0.95],
+            [0.18, 0.18, 0.20, 0.20],
+            1.0 * scale,
+        );
         for (i, it) in items.iter().enumerate() {
             let (ry, rh) = rows[i];
             match &it.kind {
                 ItemKind::Sep => {
-                    g.shape(surf, [(rect[0] + 12.0) * scale, (ry + rh / 2.0) * scale, (rect[2] - 24.0) * scale, 1.0 * scale], 0.0, [0.16, 0.16, 0.18, 0.16], [0.0; 4], 0.0);
+                    g.shape(
+                        surf,
+                        [
+                            (rect[0] + 12.0) * scale,
+                            (ry + rh / 2.0) * scale,
+                            (rect[2] - 24.0) * scale,
+                            1.0 * scale,
+                        ],
+                        0.0,
+                        [0.16, 0.16, 0.18, 0.16],
+                        [0.0; 4],
+                        0.0,
+                    );
                 }
                 ItemKind::Title | ItemKind::Item(_) => {
                     let is_title = matches!(it.kind, ItemKind::Title);
                     if hover == Some(i) {
-                        g.shape(surf, [(rect[0] + 6.0) * scale, ry * scale, (rect[2] - 12.0) * scale, rh * scale], 8.0 * scale, [0.105, 0.14, 0.213, 0.22], [0.0; 4], 0.0);
+                        g.shape(
+                            surf,
+                            [
+                                (rect[0] + 6.0) * scale,
+                                ry * scale,
+                                (rect[2] - 12.0) * scale,
+                                rh * scale,
+                            ],
+                            8.0 * scale,
+                            [0.105, 0.14, 0.213, 0.22],
+                            [0.0; 4],
+                            0.0,
+                        );
                     }
                     let key = (it.label.clone(), (13.0 * scale * 10.0) as u32, is_title);
                     if let Some((t, tw, th)) = self.labels.get(&key) {
@@ -1037,7 +1210,18 @@ impl App {
                         } else {
                             [C_FG[0], C_FG[1], C_FG[2], 1.0]
                         };
-                        g.texture(surf, t, [(rect[0] + 16.0) * scale, (ry + rh / 2.0) * scale - *th as f32 / 2.0, *tw as f32, *th as f32], col, true);
+                        g.texture(
+                            surf,
+                            t,
+                            [
+                                (rect[0] + 16.0) * scale,
+                                (ry + rh / 2.0) * scale - *th as f32 / 2.0,
+                                *tw as f32,
+                                *th as f32,
+                            ],
+                            col,
+                            true,
+                        );
                     }
                 }
             }
@@ -1077,16 +1261,19 @@ impl App {
         self.request_redraw(vi);
         self.schedule_wake(HIDE_DELAY + Duration::from_millis(30));
         if has_menu {
-            let _ = self.loop_handle.insert_source(Timer::from_duration(Duration::from_millis(950)), move |_, _, app: &mut App| {
-                if let Some(v) = app.views.get_mut(vi) {
-                    if v.menu_close_at.map_or(false, |t| Instant::now() >= t) && v.layout.pointer.is_none() {
-                        v.menu = None;
-                        v.menu_close_at = None;
+            let _ = self.loop_handle.insert_source(
+                Timer::from_duration(Duration::from_millis(950)),
+                move |_, _, app: &mut App| {
+                    if let Some(v) = app.views.get_mut(vi) {
+                        if v.menu_close_at.is_some_and(|t| Instant::now() >= t) && v.layout.pointer.is_none() {
+                            v.menu = None;
+                            v.menu_close_at = None;
+                        }
                     }
-                }
-                app.menu_released();
-                TimeoutAction::Drop
-            });
+                    app.menu_released();
+                    TimeoutAction::Drop
+                },
+            );
         }
     }
 
@@ -1109,7 +1296,9 @@ impl App {
             }
             return;
         }
-        let Some(si) = self.views[vi].layout.slot_at(pos.0) else { return };
+        let Some(si) = self.views[vi].layout.slot_at(pos.0) else {
+            return;
+        };
         let slot = self.views[vi].layout.slots[si].clone();
         match slot.kind {
             Kind::Add => {
@@ -1118,7 +1307,9 @@ impl App {
                 }
             }
             Kind::App => {
-                let Some(e) = self.entries.get(slot.entry).cloned() else { return };
+                let Some(e) = self.entries.get(slot.entry).cloned() else {
+                    return;
+                };
                 match button {
                     BTN_LEFT => self.activate_entry(vi, &e),
                     BTN_MIDDLE => self.launch_entry(vi, &e),
@@ -1160,20 +1351,37 @@ impl App {
 
     fn open_menu(&mut self, vi: usize, si: usize, e: &model::Entry) {
         let mut items: Vec<MenuItem> = vec![];
-        let push = |items: &mut Vec<MenuItem>, label: &str, kind: ItemKind| items.push(MenuItem { label: label.to_string(), kind });
+        let push = |items: &mut Vec<MenuItem>, label: &str, kind: ItemKind| {
+            items.push(MenuItem {
+                label: label.to_string(),
+                kind,
+            })
+        };
         push(&mut items, &e.name, ItemKind::Title);
         push(&mut items, "", ItemKind::Sep);
         push(&mut items, tr(Msg::NewWindow), ItemKind::Item(MenuAction::NewWindow));
         if let Some(app) = &e.app {
             for a in &app.actions {
-                push(&mut items, &a.name, ItemKind::Item(MenuAction::DesktopAction(a.id.clone())));
+                push(
+                    &mut items,
+                    &a.name,
+                    ItemKind::Item(MenuAction::DesktopAction(a.id.clone())),
+                );
             }
         }
         if !e.windows.is_empty() {
             push(&mut items, "", ItemKind::Sep);
             let many = e.windows.len() > 1;
-            push(&mut items, tr(if many { Msg::MinimizeAll } else { Msg::MinimizeOne }), ItemKind::Item(MenuAction::Minimize));
-            push(&mut items, tr(if many { Msg::CloseAll } else { Msg::CloseOne }), ItemKind::Item(MenuAction::Close));
+            push(
+                &mut items,
+                tr(if many { Msg::MinimizeAll } else { Msg::MinimizeOne }),
+                ItemKind::Item(MenuAction::Minimize),
+            );
+            push(
+                &mut items,
+                tr(if many { Msg::CloseAll } else { Msg::CloseOne }),
+                ItemKind::Item(MenuAction::Close),
+            );
         }
         push(&mut items, "", ItemKind::Sep);
         if e.pinned {
@@ -1200,19 +1408,36 @@ impl App {
             }
         }
         let w = maxw + 40.0;
-        let h = 2.0 * MENU_PAD + items.iter().map(|i| if matches!(i.kind, ItemKind::Sep) { MENU_SEP } else { MENU_ROW }).sum::<f32>();
+        let h = 2.0 * MENU_PAD
+            + items
+                .iter()
+                .map(|i| {
+                    if matches!(i.kind, ItemKind::Sep) {
+                        MENU_SEP
+                    } else {
+                        MENU_ROW
+                    }
+                })
+                .sum::<f32>();
         let v = &mut self.views[vi];
         let s = &v.layout.slots[si];
         let icon_top = v.layout.h - BOTTOM_GAP - PAD_BOTTOM - s.w;
         let x = (s.x + s.w / 2.0 - w / 2.0).clamp(4.0, (v.layout.w - w - 4.0).max(4.0));
         let y = (icon_top - 14.0 - h).max(4.0);
-        v.menu = Some(Menu { entry: s.entry, items, rect: [x, y, w, h], hover: None });
+        v.menu = Some(Menu {
+            entry: s.entry,
+            items,
+            rect: [x, y, w, h],
+            hover: None,
+        });
         v.layout.menu_open = true;
         self.request_redraw(vi);
     }
 
     fn run_menu_action(&mut self, entry: usize, a: MenuAction) {
-        let Some(e) = self.entries.get(entry).cloned() else { return };
+        let Some(e) = self.entries.get(entry).cloned() else {
+            return;
+        };
         match a {
             MenuAction::NewWindow => {
                 if let Some(app) = &e.app {
@@ -1373,7 +1598,11 @@ impl App {
                         }
                     }
                 }
-                if ok { "ok\n".into() } else { "not-found\n".into() }
+                if ok {
+                    "ok\n".into()
+                } else {
+                    "not-found\n".into()
+                }
             }
             "refresh" => {
                 self.refresh();
@@ -1381,7 +1610,9 @@ impl App {
             }
             "shader" => {
                 // shader <directory containing glass.vert and glass.frag>
-                let Some(dir) = a1 else { return "usage: shader <directory>\n".into() };
+                let Some(dir) = a1 else {
+                    return "usage: shader <directory>\n".into();
+                };
                 let vs = std::fs::read_to_string(std::path::Path::new(dir).join("glass.vert"));
                 let fs = std::fs::read_to_string(std::path::Path::new(dir).join("glass.frag"));
                 match (vs, fs) {
@@ -1415,12 +1646,22 @@ impl App {
                 s.push_str(&format!(
                     "  \"total_draws\": {},\n  \"gl\": \"{}\",\n  \"entries\": {},\n  \"views\": [\n",
                     self.total_draws,
-                    self.gfx.as_ref().map(|g| if g.glass_is_fallback { "fallback" } else { "shader" }).unwrap_or("none"),
+                    self.gfx
+                        .as_ref()
+                        .map(|g| if g.glass_is_fallback { "fallback" } else { "shader" })
+                        .unwrap_or("none"),
                     self.entries.len()
                 ));
                 for (i, v) in self.views.iter().enumerate() {
-                    let ptr = v.layout.pointer.map(|p| format!("[{:.1},{:.1}]", p.0, p.1)).unwrap_or_else(|| "null".into());
-                    let reg = v.region_sig.map(|r| format!("[{},{},{},{}]", r.0, r.1, r.2, r.3)).unwrap_or_else(|| "null".into());
+                    let ptr = v
+                        .layout
+                        .pointer
+                        .map(|p| format!("[{:.1},{:.1}]", p.0, p.1))
+                        .unwrap_or_else(|| "null".into());
+                    let reg = v
+                        .region_sig
+                        .map(|r| format!("[{},{},{},{}]", r.0, r.1, r.2, r.3))
+                        .unwrap_or_else(|| "null".into());
                     s.push_str(&format!(
                         "    {{\"name\":\"{}\",\"reveal\":{:.3},\"scale\":{:.3},\"buf\":[{},{}],\"surface\":[{},{}],\"draws\":{},\"busy\":{},\"frame_pending\":{},\"lum\":{:.3},\"backdrop\":{},\"capturing\":{},\"pointer\":{},\"menu\":{},\"region\":{},\"slots\":[{}]}}{}\n",
                         v.name, v.layout.reveal, v.buf.0 as f32 / v.layout.w, v.buf.0, v.buf.1, v.layout.w, v.layout.h, v.draws, v.busy, v.frame_pending,
@@ -1443,7 +1684,13 @@ impl App {
 
 // Wayland handlers
 impl CompositorHandler for App {
-    fn scale_factor_changed(&mut self, _: &Connection, _: &QueueHandle<Self>, surface: &wl_surface::WlSurface, new_factor: i32) {
+    fn scale_factor_changed(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        surface: &wl_surface::WlSurface,
+        new_factor: i32,
+    ) {
         if let Some(vi) = self.view_idx_by_surface(surface) {
             if self.views[vi].viewport.is_none() {
                 self.views[vi].int_scale = new_factor.max(1);
@@ -1455,7 +1702,14 @@ impl CompositorHandler for App {
             }
         }
     }
-    fn transform_changed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: wl_output::Transform) {}
+    fn transform_changed(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: wl_output::Transform,
+    ) {
+    }
     fn frame(&mut self, _: &Connection, _: &QueueHandle<Self>, surface: &wl_surface::WlSurface, _time: u32) {
         if let Some(vi) = self.view_idx_by_surface(surface) {
             self.views[vi].frame_pending = false;
@@ -1464,8 +1718,22 @@ impl CompositorHandler for App {
             }
         }
     }
-    fn surface_enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: &wl_output::WlOutput) {}
-    fn surface_leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: &wl_output::WlOutput) {}
+    fn surface_enter(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: &wl_output::WlOutput,
+    ) {
+    }
+    fn surface_leave(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: &wl_output::WlOutput,
+    ) {
+    }
 }
 
 impl OutputHandler for App {
@@ -1492,13 +1760,30 @@ impl OutputHandler for App {
 
 impl LayerShellHandler for App {
     fn closed(&mut self, _: &Connection, _: &QueueHandle<Self>, layer: &LayerSurface) {
-        if let Some(i) = self.views.iter().position(|v| v.layer.wl_surface() == layer.wl_surface()) {
+        if let Some(i) = self
+            .views
+            .iter()
+            .position(|v| v.layer.wl_surface() == layer.wl_surface())
+        {
             let v = self.views.remove(i);
             self.destroy_view(v);
         }
     }
-    fn configure(&mut self, _: &Connection, _: &QueueHandle<Self>, layer: &LayerSurface, _c: LayerSurfaceConfigure, _serial: u32) {
-        let Some(vi) = self.views.iter().position(|v| v.layer.wl_surface() == layer.wl_surface()) else { return };
+    fn configure(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        layer: &LayerSurface,
+        _c: LayerSurfaceConfigure,
+        _serial: u32,
+    ) {
+        let Some(vi) = self
+            .views
+            .iter()
+            .position(|v| v.layer.wl_surface() == layer.wl_surface())
+        else {
+            return;
+        };
         self.views[vi].configured = true;
         if let Err(e) = self.ensure_egl(vi) {
             eprintln!("EGL: {e}");
@@ -1537,10 +1822,23 @@ impl SeatHandler for App {
 }
 
 impl PointerHandler for App {
-    fn pointer_frame(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_pointer::WlPointer, events: &[PointerEvent]) {
+    fn pointer_frame(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_pointer::WlPointer,
+        events: &[PointerEvent],
+    ) {
         for ev in events {
-            dbg_log(&format!("pointer {:?} @ {:?} (views: {})", ev.kind, ev.position, self.views.len()));
-            let Some(vi) = self.view_idx_by_surface(&ev.surface) else { continue };
+            dbg_log(&format!(
+                "pointer {:?} @ {:?} (views: {})",
+                ev.kind,
+                ev.position,
+                self.views.len()
+            ));
+            let Some(vi) = self.view_idx_by_surface(&ev.surface) else {
+                continue;
+            };
             let pos = (ev.position.0 as f32, ev.position.1 as f32);
             match ev.kind {
                 PointerEventKind::Enter { serial } => self.pointer_enter(vi, pos, serial),
@@ -1554,11 +1852,25 @@ impl PointerHandler for App {
 }
 
 impl Dispatch<ZwlrScreencopyFrameV1, CaptureData> for App {
-    fn event(app: &mut Self, frame: &ZwlrScreencopyFrameV1, event: zwlr_screencopy_frame_v1::Event, data: &CaptureData, _: &Connection, qh: &QueueHandle<Self>) {
+    // The `WEnum::Value` guards read better next to the event than folded into the match patterns.
+    #[allow(clippy::collapsible_match)]
+    fn event(
+        app: &mut Self,
+        frame: &ZwlrScreencopyFrameV1,
+        event: zwlr_screencopy_frame_v1::Event,
+        data: &CaptureData,
+        _: &Connection,
+        qh: &QueueHandle<Self>,
+    ) {
         use zwlr_screencopy_frame_v1::Event;
         let mut st = data.st.lock().unwrap();
         match event {
-            Event::Buffer { format, width, height, stride } => {
+            Event::Buffer {
+                format,
+                width,
+                height,
+                stride,
+            } => {
                 if let WEnum::Value(f) = format {
                     if st.fmt.is_none() || f == wl_shm::Format::Xrgb8888 || f == wl_shm::Format::Argb8888 {
                         st.fmt = Some(f);
@@ -1593,7 +1905,16 @@ impl Dispatch<ZwlrScreencopyFrameV1, CaptureData> for App {
             Event::Ready { .. } => {
                 let result = st.buf.as_ref().and_then(|(shm, _, _)| {
                     st.fmt
-                        .and_then(|f| capture::to_rgba(f, st.w as usize, st.h as usize, st.stride as usize, &shm.map[..], st.y_invert))
+                        .and_then(|f| {
+                            capture::to_rgba(
+                                f,
+                                st.w as usize,
+                                st.h as usize,
+                                st.stride as usize,
+                                &shm.map[..],
+                                st.y_invert,
+                            )
+                        })
                         .map(|px| (px, st.w as i32, st.h as i32))
                 });
                 if let Some((_, b, p)) = st.buf.take() {
@@ -1619,7 +1940,14 @@ impl Dispatch<ZwlrScreencopyFrameV1, CaptureData> for App {
 }
 
 impl Dispatch<WpFractionalScaleV1, ViewId> for App {
-    fn event(app: &mut Self, _: &WpFractionalScaleV1, event: wp_fractional_scale_v1::Event, data: &ViewId, _: &Connection, _: &QueueHandle<Self>) {
+    fn event(
+        app: &mut Self,
+        _: &WpFractionalScaleV1,
+        event: wp_fractional_scale_v1::Event,
+        data: &ViewId,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
         if let wp_fractional_scale_v1::Event::PreferredScale { scale } = event {
             let vi = data.0;
             if let Some(v) = app.views.get_mut(vi) {
@@ -1635,7 +1963,15 @@ impl Dispatch<WpFractionalScaleV1, ViewId> for App {
 }
 
 impl Dispatch<WpCursorShapeDeviceV1, ()> for App {
-    fn event(_: &mut Self, _: &WpCursorShapeDeviceV1, _: wp_cursor_shape_device_v1::Event, _: &(), _: &Connection, _: &QueueHandle<Self>) {}
+    fn event(
+        _: &mut Self,
+        _: &WpCursorShapeDeviceV1,
+        _: wp_cursor_shape_device_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+    }
 }
 
 delegate_noop!(App: ignore wl_shm::WlShm);

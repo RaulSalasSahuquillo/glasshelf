@@ -26,9 +26,18 @@ impl EglCtx {
         inst.initialize(display)?;
         inst.bind_api(egl::OPENGL_ES_API)?;
         let attribs = [
-            egl::SURFACE_TYPE, egl::WINDOW_BIT,
-            egl::RENDERABLE_TYPE, egl::OPENGL_ES3_BIT,
-            egl::RED_SIZE, 8, egl::GREEN_SIZE, 8, egl::BLUE_SIZE, 8, egl::ALPHA_SIZE, 8,
+            egl::SURFACE_TYPE,
+            egl::WINDOW_BIT,
+            egl::RENDERABLE_TYPE,
+            egl::OPENGL_ES3_BIT,
+            egl::RED_SIZE,
+            8,
+            egl::GREEN_SIZE,
+            8,
+            egl::BLUE_SIZE,
+            8,
+            egl::ALPHA_SIZE,
+            8,
             egl::NONE,
         ];
         let config = inst
@@ -36,18 +45,26 @@ impl EglCtx {
             .ok_or_else(|| anyhow!("no RGBA8 + GLES3 EGL config available"))?;
         let ctx_attribs = [egl::CONTEXT_MAJOR_VERSION, 3, egl::CONTEXT_MINOR_VERSION, 0, egl::NONE];
         let context = inst.create_context(display, config, None, &ctx_attribs)?;
-        Ok(EglCtx { inst, display, config, context })
+        Ok(EglCtx {
+            inst,
+            display,
+            config,
+            context,
+        })
     }
 
     /// # Safety
     /// `native_window` must be a valid `wl_egl_window*`.
     pub unsafe fn create_surface(&self, native_window: *mut c_void) -> Result<egl::Surface> {
-        let s = self.inst.create_window_surface(self.display, self.config, native_window, None)?;
+        let s = self
+            .inst
+            .create_window_surface(self.display, self.config, native_window, None)?;
         Ok(s)
     }
 
     pub fn make_current(&self, s: egl::Surface) -> Result<()> {
-        self.inst.make_current(self.display, Some(s), Some(s), Some(self.context))?;
+        self.inst
+            .make_current(self.display, Some(s), Some(s), Some(self.context))?;
         Ok(())
     }
 
@@ -65,7 +82,9 @@ impl EglCtx {
     }
 
     pub fn proc_address(&self, name: &str) -> *const c_void {
-        self.inst.get_proc_address(name).map_or(std::ptr::null(), |p| p as *const c_void)
+        self.inst
+            .get_proc_address(name)
+            .map_or(std::ptr::null(), |p| p as *const c_void)
     }
 }
 
@@ -173,10 +192,10 @@ impl Prog {
     pub fn loc(&self, gl: &glow::Context, name: &str) -> Option<glow::UniformLocation> {
         let mut m = self.locs.borrow_mut();
         if let Some(l) = m.get(name) {
-            return l.clone();
+            return *l;
         }
         let l = unsafe { gl.get_uniform_location(self.p, name) };
-        m.insert(name.to_string(), l.clone());
+        m.insert(name.to_string(), l);
         l
     }
 }
@@ -223,7 +242,10 @@ fn compile(gl: &glow::Context, vs: &str, fs: &str) -> Result<Prog> {
             gl.detach_shader(p, s);
             gl.delete_shader(s);
         }
-        Ok(Prog { p, locs: RefCell::new(HashMap::new()) })
+        Ok(Prog {
+            p,
+            locs: RefCell::new(HashMap::new()),
+        })
     }
 }
 
@@ -240,7 +262,12 @@ impl Gfx {
             gl.enable_vertex_attrib_array(1);
             gl.vertex_attrib_pointer_f32(1, 2, glow::FLOAT, false, 16, 8);
             gl.enable(glow::BLEND);
-            gl.blend_func_separate(glow::ONE, glow::ONE_MINUS_SRC_ALPHA, glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func_separate(
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+            );
             (vao, vbo)
         };
         let shape = compile(&gl, VERT, SHAPE_FRAG)?;
@@ -260,7 +287,15 @@ impl Gfx {
                 compile(&gl, VERT, GLASS_FALLBACK_FRAG)?
             }
         };
-        Ok(Gfx { gl, vao, vbo, glass, shape, tex, glass_is_fallback })
+        Ok(Gfx {
+            gl,
+            vao,
+            vbo,
+            glass,
+            shape,
+            tex,
+            glass_is_fallback,
+        })
     }
 
     /// Hot-swaps the glass shader (handy for iterating without a restart). Returns the compile error, if any.
@@ -285,11 +320,11 @@ impl Gfx {
     fn quad(&self, x0: f32, y0: f32, x1: f32, y1: f32, uv: [f32; 4]) {
         let [u0, v0, u1, v1] = uv;
         let v: [f32; 24] = [
-            x0, y0, u0, v0, x1, y0, u1, v0, x0, y1, u0, v1,
-            x1, y0, u1, v0, x1, y1, u1, v1, x0, y1, u0, v1,
+            x0, y0, u0, v0, x1, y0, u1, v0, x0, y1, u0, v1, x1, y0, u1, v0, x1, y1, u1, v1, x0, y1, u0, v1,
         ];
         unsafe {
-            self.gl.buffer_sub_data_u8_slice(glow::ARRAY_BUFFER, 0, bytemuck::cast_slice(&v));
+            self.gl
+                .buffer_sub_data_u8_slice(glow::ARRAY_BUFFER, 0, bytemuck::cast_slice(&v));
             self.gl.draw_arrays(glow::TRIANGLES, 0, 6);
         }
     }
@@ -348,14 +383,28 @@ impl Gfx {
         }
         self.u4(&self.tex, "u_color", color[0], color[1], color[2], color[3]);
         self.u1(&self.tex, "u_mask", if mask { 1.0 } else { 0.0 });
-        self.quad(rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3], [0.0, 0.0, 1.0, 1.0]);
+        self.quad(
+            rect[0],
+            rect[1],
+            rect[0] + rect[2],
+            rect[1] + rect[3],
+            [0.0, 0.0, 1.0, 1.0],
+        );
     }
 
     /// Glass capsule (with its drop shadow) drawn over `quad_rect`.
     #[allow(clippy::too_many_arguments)]
     pub fn glass(
-        &self, surf: (f32, f32), backdrop: &Tex, panel: [f32; 4], quad_rect: [f32; 4], scale: f32,
-        sample_shift: (f32, f32), pointer: (f32, f32, f32), lum: f32, time: f32,
+        &self,
+        surf: (f32, f32),
+        backdrop: &Tex,
+        panel: [f32; 4],
+        quad_rect: [f32; 4],
+        scale: f32,
+        sample_shift: (f32, f32),
+        pointer: (f32, f32, f32),
+        lum: f32,
+        time: f32,
     ) {
         let g = &self.glass;
         self.use_prog(g, surf);
@@ -373,7 +422,13 @@ impl Gfx {
         self.u3(g, "u_pointer", pointer.0, pointer.1, pointer.2);
         self.u1(g, "u_lum", lum);
         self.u1(g, "u_time", time);
-        self.quad(quad_rect[0], quad_rect[1], quad_rect[0] + quad_rect[2], quad_rect[1] + quad_rect[3], [0.0; 4]);
+        self.quad(
+            quad_rect[0],
+            quad_rect[1],
+            quad_rect[0] + quad_rect[2],
+            quad_rect[1] + quad_rect[3],
+            [0.0; 4],
+        );
     }
 
     // ---- textures
@@ -383,7 +438,14 @@ impl Gfx {
             self.gl.bind_texture(glow::TEXTURE_2D, Some(id));
             self.gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
             self.gl.tex_image_2d(
-                glow::TEXTURE_2D, 0, glow::RGBA8 as i32, w, h, 0, glow::RGBA, glow::UNSIGNED_BYTE,
+                glow::TEXTURE_2D,
+                0,
+                glow::RGBA8 as i32,
+                w,
+                h,
+                0,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
                 glow::PixelUnpackData::Slice(Some(data)),
             );
             self.set_filters(mipmaps);
@@ -402,7 +464,14 @@ impl Gfx {
                     self.gl.bind_texture(glow::TEXTURE_2D, Some(old.id));
                     self.gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
                     self.gl.tex_sub_image_2d(
-                        glow::TEXTURE_2D, 0, 0, 0, w, h, glow::RGBA, glow::UNSIGNED_BYTE,
+                        glow::TEXTURE_2D,
+                        0,
+                        0,
+                        0,
+                        w,
+                        h,
+                        glow::RGBA,
+                        glow::UNSIGNED_BYTE,
                         glow::PixelUnpackData::Slice(Some(data)),
                     );
                     if mipmaps {
@@ -420,11 +489,19 @@ impl Gfx {
     }
 
     unsafe fn set_filters(&self, mipmaps: bool) {
-        let min = if mipmaps { glow::LINEAR_MIPMAP_LINEAR } else { glow::LINEAR };
-        self.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, min as i32);
-        self.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
-        self.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
-        self.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
+        let min = if mipmaps {
+            glow::LINEAR_MIPMAP_LINEAR
+        } else {
+            glow::LINEAR
+        };
+        self.gl
+            .tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MIN_FILTER, min as i32);
+        self.gl
+            .tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_MAG_FILTER, glow::LINEAR as i32);
+        self.gl
+            .tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE as i32);
+        self.gl
+            .tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE as i32);
     }
 
     pub fn delete_tex(&self, t: Tex) {

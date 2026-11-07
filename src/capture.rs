@@ -14,8 +14,7 @@ pub struct ShmBuf {
 pub fn alloc(size: usize) -> Result<ShmBuf> {
     let fd = memfd_create("glassdock-capture", MemfdFlags::CLOEXEC)?;
     ftruncate(&fd, size as u64)?;
-    let map = unsafe { MmapOptions::new().len(size).map_mut(&fd) }
-        .map_err(|e| anyhow!("mmap: {e}"))?;
+    let map = unsafe { MmapOptions::new().len(size).map_mut(&fd) }.map_err(|e| anyhow!("mmap: {e}"))?;
     Ok(ShmBuf { fd, map })
 }
 
@@ -82,5 +81,9 @@ pub fn mean_luma(rgba: &[u8], w: usize, h: usize) -> f32 {
         }
         y += 4;
     }
-    if n == 0 { 0.3 } else { (sum / n as f64 / 255.0) as f32 }
+    if n == 0 {
+        0.3
+    } else {
+        (sum / n as f64 / 255.0) as f32
+    }
 }
