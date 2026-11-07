@@ -22,7 +22,7 @@ wayland-sys = { version = "0.31", features = ["client", "egl", "dlopen"] }     #
 khronos-egl = { version = "6", features = ["dynamic"] }
 glow = "0.17"
 # CPU rasterisation of icons (SVG/PNG) and text.
-resvg = { version = "0.45", default-features = false }
+resvg = { version = "0.49", default-features = false }
 usvg = { version = "0.45", default-features = false }
 tiny-skia = "0.11"
 skrifa = "0.44"
