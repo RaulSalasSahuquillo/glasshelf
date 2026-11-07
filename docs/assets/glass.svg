@@ -1,0 +1,433 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1000 380" width="1000" height="380" role="img" aria-labelledby="glass-title glass-desc">
+  <title id="glass-title">Anatomy of the Liquid Glass</title>
+  <desc id="glass-desc">Animated exploded-layer diagram of the GlassDock glass shader. A backdrop snapshot is refracted through a thick beveled capsule, gains chromatic dispersion and frost, then specular key and counter lights with a Fresnel glow, and finally composites with a soft shadow and a moving glint.</desc>
+
+  <style>
+    .glass-txt { font-family: Inter, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; }
+    @media (prefers-reduced-motion: reduce) { .glass-progress { display: none; } }
+  </style>
+
+  <defs>
+    <!-- card background -->
+    <linearGradient id="glass-card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f2335"/>
+      <stop offset="1" stop-color="#16161e"/>
+    </linearGradient>
+    <radialGradient id="glass-card-glow" cx="0.5" cy="0.38" r="0.6">
+      <stop offset="0" stop-color="#7aa2f7" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#7aa2f7" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- shared clip paths (panel-local coordinates, panel is 150 x 190, capsule is 122 x 70 at 14,60) -->
+    <clipPath id="glass-clip-panel"><rect width="150" height="190" rx="14"/></clipPath>
+    <clipPath id="glass-clip-pill"><path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z"/></clipPath>
+    <clipPath id="glass-clip-outside"><path clip-rule="evenodd" d="M0 0H150V190H0Z M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z"/></clipPath>
+
+    <!-- backdrop scene -->
+    <linearGradient id="glass-sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#27346e"/>
+      <stop offset="0.45" stop-color="#6a4fb3"/>
+      <stop offset="0.8" stop-color="#e0607e"/>
+      <stop offset="1" stop-color="#ff9e64"/>
+    </linearGradient>
+    <pattern id="glass-grid" width="15" height="14" patternUnits="userSpaceOnUse">
+      <path d="M0 0.5H15M0.5 0V14" fill="none" stroke="#fff" stroke-opacity="0.34" stroke-width="1"/>
+    </pattern>
+    <g id="glass-scene-base">
+      <rect width="150" height="190" fill="url(#glass-sky)"/>
+      <circle cx="28" cy="38" r="30" fill="#7dcfff" fill-opacity="0.85"/>
+      <circle cx="122" cy="22" r="17" fill="#9ece6a" fill-opacity="0.9"/>
+      <circle cx="128" cy="156" r="36" fill="#ff9e64" fill-opacity="0.95"/>
+      <circle cx="26" cy="160" r="26" fill="#bb9af7" fill-opacity="0.9"/>
+      <rect width="150" height="190" fill="url(#glass-grid)"/>
+      <!-- crisp accent lines: they visibly bend inside the lens -->
+      <path d="M0 78H150M0 112H150M32 0V190M118 0V190" stroke="#fff" stroke-width="1.7" stroke-opacity="0.92" fill="none"/>
+      <!-- text-like bars above and below the capsule -->
+      <g fill="#fff">
+        <rect x="12" y="14" width="64" height="7" rx="3.5" fill-opacity="0.95"/>
+        <rect x="12" y="27" width="96" height="6" rx="3" fill-opacity="0.6"/>
+        <rect x="12" y="38" width="52" height="6" rx="3" fill="#1a1b26" fill-opacity="0.75"/>
+        <rect x="12" y="49" width="110" height="5" rx="2.5" fill-opacity="0.8"/>
+        <rect x="12" y="136" width="100" height="5" rx="2.5" fill-opacity="0.8"/>
+        <rect x="12" y="146" width="58" height="6" rx="3" fill="#1a1b26" fill-opacity="0.75"/>
+        <rect x="12" y="157" width="116" height="6" rx="3" fill-opacity="0.6"/>
+        <rect x="12" y="169" width="72" height="7" rx="3.5" fill-opacity="0.95"/>
+      </g>
+    </g>
+    <g id="glass-scene">
+      <use xlink:href="#glass-scene-base"/>
+      <text class="glass-txt" x="75" y="107" font-size="40" font-weight="800" fill="#fff" text-anchor="middle">Aa</text>
+    </g>
+
+    <!-- refraction filters -->
+    <!-- Stage 2: lens refraction only. The displacement scale is the "bevel strength" (animated 0 -> full). -->
+    <filter id="glass-f-lens" x="0" y="20" width="150" height="150" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <!-- baked bevel map: R/G channels hold the outward refraction direction x strength -->
+      <feImage x="0" y="20" width="150" height="150" preserveAspectRatio="none" result="map" xlink:href="data:image/png;base64,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"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="40" xChannelSelector="R" yChannelSelector="G" result="d">
+        <animate attributeName="scale" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.195;0.345;1" values="0;0;40;40" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+      </feDisplacementMap>
+      <feGaussianBlur in="d" stdDeviation="0.35"/>
+    </filter>
+    <!-- Stage 3: chromatic dispersion. Each colour channel is displaced with a slightly different strength,
+         so fringes only appear where the bevel bends the light (the rim). A tiny blur adds the frost. -->
+    <filter id="glass-f-disp" x="0" y="20" width="150" height="150" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <!-- baked bevel map: R/G channels hold the outward refraction direction x strength -->
+      <feImage x="0" y="20" width="150" height="150" preserveAspectRatio="none" result="map" xlink:href="data:image/png;base64,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"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="40" xChannelSelector="R" yChannelSelector="G" result="dR">
+        <animate attributeName="scale" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.425;0.515;1" values="40;40;45;45" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+      </feDisplacementMap>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="40" xChannelSelector="R" yChannelSelector="G" result="dG"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="40" xChannelSelector="R" yChannelSelector="G" result="dB">
+        <animate attributeName="scale" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.425;0.515;1" values="40;40;35;35" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+      </feDisplacementMap>
+      <feColorMatrix in="dR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cR"/>
+      <feColorMatrix in="dG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cG"/>
+      <feColorMatrix in="dB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cB"/>
+      <feBlend in="cR" in2="cG" mode="screen" result="cRG"/>
+      <feBlend in="cRG" in2="cB" mode="screen" result="rgb"/>
+      <feGaussianBlur in="rgb" stdDeviation="0.55"/>
+    </filter>
+    <!-- Stages 4 and 5: the finished refraction + dispersion + frost, at full strength. -->
+    <filter id="glass-f-full" x="0" y="20" width="150" height="150" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <!-- baked bevel map: R/G channels hold the outward refraction direction x strength -->
+      <feImage x="0" y="20" width="150" height="150" preserveAspectRatio="none" result="map" xlink:href="data:image/png;base64,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"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="45" xChannelSelector="R" yChannelSelector="G" result="dR"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="40" xChannelSelector="R" yChannelSelector="G" result="dG"/>
+      <feDisplacementMap in="SourceGraphic" in2="map" scale="35" xChannelSelector="R" yChannelSelector="G" result="dB"/>
+      <feColorMatrix in="dR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cR"/>
+      <feColorMatrix in="dG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="cG"/>
+      <feColorMatrix in="dB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="cB"/>
+      <feBlend in="cR" in2="cG" mode="screen" result="cRG"/>
+      <feBlend in="cRG" in2="cB" mode="screen" result="rgb"/>
+      <feGaussianBlur in="rgb" stdDeviation="0.55"/>
+    </filter>
+    <!-- Small blurs for glow, rim bloom and the soft shadow -->
+    <filter id="glass-f-b3" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3.2"/></filter>
+    <filter id="glass-f-b1" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="1.1"/></filter>
+    <filter id="glass-f-shadow" x="-25%" y="-70%" width="150%" height="250%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="glass-f-glint" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="1.6"/></filter>
+
+    <!-- glass body (refraction + dispersion + frost + milky veil), reused by stages 4 and 5 -->
+    <g id="glass-body-full">
+      <g clip-path="url(#glass-clip-pill)">
+        <use xlink:href="#glass-scene" filter="url(#glass-f-full)"/>
+        <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="#e6ecff" fill-opacity="0.10"/>
+      </g>
+    </g>
+
+    <!-- same glass over the plain backdrop (no big "Aa"), used by the final result so the icons read cleanly -->
+    <g id="glass-body-plain">
+      <g clip-path="url(#glass-clip-pill)">
+        <use xlink:href="#glass-scene-base" filter="url(#glass-f-full)"/>
+        <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="#e6ecff" fill-opacity="0.10"/>
+      </g>
+    </g>
+
+    <!-- specular lighting layers -->
+    <linearGradient id="glass-key" gradientUnits="userSpaceOnUse" x1="14" y1="60" x2="136" y2="130">
+      <stop offset="0" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.22" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="0.42" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="0.56" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glass-counter" gradientUnits="userSpaceOnUse" x1="14" y1="60" x2="136" y2="130">
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.7" stop-color="#fff" stop-opacity="0.32"/>
+      <stop offset="0.9" stop-color="#fff" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="glass-gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glass-sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0.4"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.8"/>
+      <stop offset="0.65" stop-color="#fff" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- key light: sharp rim line + inner glow, top-left -->
+    <g id="glass-L-key">
+      <g clip-path="url(#glass-clip-pill)">
+        <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="url(#glass-key)" stroke-width="10" stroke-opacity="0.55" filter="url(#glass-f-b3)"/>
+      </g>
+      <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="url(#glass-key)" stroke-width="3" stroke-opacity="0.5" filter="url(#glass-f-b1)"/>
+      <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="url(#glass-key)" stroke-width="1.5"/>
+    </g>
+    <!-- counter light: weaker, bottom-right -->
+    <g id="glass-L-counter">
+      <g clip-path="url(#glass-clip-pill)">
+        <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="url(#glass-counter)" stroke-width="8" stroke-opacity="0.4" filter="url(#glass-f-b3)"/>
+      </g>
+      <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="url(#glass-counter)" stroke-width="1.2"/>
+    </g>
+    <!-- Fresnel: edges brighten at grazing angles; plus a soft top gloss -->
+    <g id="glass-L-fresnel">
+      <g clip-path="url(#glass-clip-pill)">
+        <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="#fff" stroke-width="7" stroke-opacity="0.26" filter="url(#glass-f-b1)"/>
+        <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="url(#glass-gloss)"/>
+      </g>
+    </g>
+
+    <!-- abstract app icons (28 x 28, centred on 0,0) - shared look across all GlassDock demos -->
+    <linearGradient id="glass-ic-g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f3549"/><stop offset="1" stop-color="#1a1b26"/></linearGradient>
+    <linearGradient id="glass-ic-g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9e64"/><stop offset="1" stop-color="#f7768e"/></linearGradient>
+    <linearGradient id="glass-ic-g3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7dcfff"/><stop offset="1" stop-color="#7aa2f7"/></linearGradient>
+    <g id="glass-ic-term">
+      <rect x="-14" y="-14" width="28" height="28" rx="8" fill="url(#glass-ic-g1)" stroke="#fff" stroke-opacity="0.25" stroke-width="0.8"/>
+      <path d="M-7 -4.5L-1.5 0L-7 4.5" fill="none" stroke="#9ece6a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M1.5 5.5H8" stroke="#c0caf5" stroke-width="2.2" stroke-linecap="round"/>
+    </g>
+    <g id="glass-ic-folder">
+      <rect x="-14" y="-14" width="28" height="28" rx="8" fill="url(#glass-ic-g2)" stroke="#fff" stroke-opacity="0.3" stroke-width="0.8"/>
+      <path d="M-8 -5.5H-2.5L-0.5 -3H8V6.5H-8Z" fill="#fff" fill-opacity="0.95" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/>
+    </g>
+    <g id="glass-ic-compass">
+      <rect x="-14" y="-14" width="28" height="28" rx="8" fill="url(#glass-ic-g3)" stroke="#fff" stroke-opacity="0.3" stroke-width="0.8"/>
+      <circle r="8" fill="none" stroke="#fff" stroke-width="1.6"/>
+      <path d="M-3.2 3.2L-1.6 -1.6L3.2 -3.2L1.6 1.6Z" fill="#fff"/>
+    </g>
+  </defs>
+
+  <!-- ===== Card ===== -->
+  <rect width="1000" height="380" rx="18" fill="url(#glass-card)"/>
+  <rect width="1000" height="380" rx="18" fill="url(#glass-card-glow)"/>
+  <rect x="0.5" y="0.5" width="999" height="379" rx="17.5" fill="none" stroke="#c0caf5" stroke-opacity="0.14"/>
+
+  <!-- header -->
+  <text class="glass-txt" x="29" y="36" font-size="19" font-weight="700" fill="#c0caf5">Anatomy of the Liquid Glass</text>
+  <text class="glass-txt" x="29" y="55" font-size="11.5" fill="#9aa5ce">Five passes inside one fragment shader turn a screenshot into a lens</text>
+  <g transform="translate(971 31)">
+    <rect x="-84" y="-13" width="84" height="22" rx="11" fill="#bb9af7" fill-opacity="0.14" stroke="#bb9af7" stroke-opacity="0.5"/>
+    <text class="glass-txt" x="-42" y="2.2" font-size="10.5" font-weight="600" fill="#bb9af7" text-anchor="middle">GLASSDOCK</text>
+  </g>
+
+  <!-- ===== Stage 1: Backdrop snapshot ===== -->
+  <g id="glass-stage1">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.03;0.08;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.03;0.1;1" values="0 10;0 10;0 0;0 0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+      <g transform="translate(29 74)">
+        <rect x="-3" y="-3" width="156" height="196" rx="17" fill="none" stroke="#7aa2f7" stroke-opacity="0.0"/>
+        <g clip-path="url(#glass-clip-panel)">
+          <use xlink:href="#glass-scene"/>
+          <!-- region that will be turned into glass (marching ants) -->
+          <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="#fff" fill-opacity="0.08" stroke="#fff" stroke-opacity="0.9" stroke-width="1.3" stroke-dasharray="5 4">
+            <animate attributeName="stroke-dashoffset" from="0" to="-9" dur="0.8s" repeatCount="indefinite"/>
+          </path>
+        <g transform="translate(75 164)">
+          <rect x="-62" y="-9" width="124" height="18" rx="9" fill="#1a1b26" fill-opacity="0.78" stroke="#c0caf5" stroke-opacity="0.22" stroke-width="0.8"/>
+          <text class="glass-txt" x="0" y="3.4" font-size="8.6" font-weight="500" fill="#c0caf5" text-anchor="middle">uBackdrop  (screencopy)</text>
+        </g>
+        </g>
+        <rect width="150" height="190" rx="14" fill="none" stroke="#c0caf5" stroke-opacity="0.16"/>
+        <!-- caption -->
+        <circle cx="9" cy="210" r="9" fill="#7aa2f7" fill-opacity="0.18" stroke="#7aa2f7" stroke-opacity="0.7"/>
+        <text class="glass-txt" x="9" y="213.6" font-size="10" font-weight="700" fill="#7aa2f7" text-anchor="middle">1</text>
+        <text class="glass-txt" x="26" y="214.2" font-size="13" font-weight="650" fill="#c0caf5">Backdrop snapshot</text>
+        <text class="glass-txt" x="1" y="233" font-size="10.5" fill="#9aa5ce">wlr-screencopy grabs what</text>
+        <text class="glass-txt" x="1" y="246" font-size="10.5" fill="#9aa5ce">sits behind the dock</text>
+      </g>
+    </g>
+  </g>
+  <!-- ===== Stage 2: Lens refraction ===== -->
+  <g id="glass-stage2">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.16;0.21;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.16;0.23;1" values="0 10;0 10;0 0;0 0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+      <g transform="translate(227 74)">
+        <rect x="-3" y="-3" width="156" height="196" rx="17" fill="none" stroke="#7aa2f7" stroke-opacity="0.0"/>
+        <g clip-path="url(#glass-clip-panel)">
+          <use xlink:href="#glass-scene"/>
+          <g clip-path="url(#glass-clip-pill)">
+            <use xlink:href="#glass-scene" filter="url(#glass-f-lens)"/>
+          </g>
+          <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="1"/>
+        <g transform="translate(75 164)">
+          <rect x="-52" y="-9" width="104" height="18" rx="9" fill="#1a1b26" fill-opacity="0.78" stroke="#c0caf5" stroke-opacity="0.22" stroke-width="0.8"/>
+          <text class="glass-txt" x="-34" y="3.3" font-size="9" font-weight="500" fill="#c0caf5" text-anchor="start">bevel</text>
+          <rect x="0" y="-2.5" width="38" height="5" rx="2.5" fill="#c0caf5" fill-opacity="0.2"/>
+          <rect x="0" y="-2.5" width="38" height="5" rx="2.5" fill="#7aa2f7">
+              <animate attributeName="width" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.195;0.345;1" values="0;0;38;38" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+          </rect>
+        </g>
+        </g>
+        <rect width="150" height="190" rx="14" fill="none" stroke="#c0caf5" stroke-opacity="0.16"/>
+        <!-- caption -->
+        <circle cx="9" cy="210" r="9" fill="#7aa2f7" fill-opacity="0.18" stroke="#7aa2f7" stroke-opacity="0.7"/>
+        <text class="glass-txt" x="9" y="213.6" font-size="10" font-weight="700" fill="#7aa2f7" text-anchor="middle">2</text>
+        <text class="glass-txt" x="26" y="214.2" font-size="13" font-weight="650" fill="#c0caf5">Lens refraction</text>
+        <text class="glass-txt" x="1" y="233" font-size="10.5" fill="#9aa5ce">a thick bevel bends the</text>
+        <text class="glass-txt" x="1" y="246" font-size="10.5" fill="#9aa5ce">backdrop near the rim</text>
+      </g>
+    </g>
+  </g>
+  <!-- ===== Stage 3: Dispersion + frost ===== -->
+  <g id="glass-stage3">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.385;0.435;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.385;0.455;1" values="0 10;0 10;0 0;0 0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+      <g transform="translate(425 74)">
+        <rect x="-3" y="-3" width="156" height="196" rx="17" fill="none" stroke="#7aa2f7" stroke-opacity="0.0"/>
+        <g clip-path="url(#glass-clip-panel)">
+          <use xlink:href="#glass-scene"/>
+          <g clip-path="url(#glass-clip-pill)">
+            <use xlink:href="#glass-scene" filter="url(#glass-f-disp)"/>
+            <!-- frost: faint milky veil -->
+            <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="#e6ecff" fill-opacity="0.10">
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.47;0.55;1" values="0;0;1;1" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+            </path>
+          </g>
+          <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" fill="none" stroke="#fff" stroke-opacity="0.4" stroke-width="1"/>
+        <g transform="translate(75 164)">
+          <rect x="-56" y="-9" width="112" height="18" rx="9" fill="#1a1b26" fill-opacity="0.78" stroke="#c0caf5" stroke-opacity="0.22" stroke-width="0.8"/>
+          <circle cx="-38" cy="0" r="3.4" fill="#f7768e"/><circle cx="-29" cy="0" r="3.4" fill="#9ece6a"/><circle cx="-20" cy="0" r="3.4" fill="#7aa2f7"/>
+          <text class="glass-txt" x="-11" y="3.3" font-size="9" font-weight="500" fill="#c0caf5" text-anchor="start">split  +  frost</text>
+        </g>
+        </g>
+        <rect width="150" height="190" rx="14" fill="none" stroke="#c0caf5" stroke-opacity="0.16"/>
+        <!-- caption -->
+        <circle cx="9" cy="210" r="9" fill="#7aa2f7" fill-opacity="0.18" stroke="#7aa2f7" stroke-opacity="0.7"/>
+        <text class="glass-txt" x="9" y="213.6" font-size="10" font-weight="700" fill="#7aa2f7" text-anchor="middle">3</text>
+        <text class="glass-txt" x="26" y="214.2" font-size="13" font-weight="650" fill="#c0caf5">Dispersion + frost</text>
+        <text class="glass-txt" x="1" y="233" font-size="10.5" fill="#9aa5ce">R, G, B refract slightly</text>
+        <text class="glass-txt" x="1" y="246" font-size="10.5" fill="#9aa5ce">apart; light milky blur</text>
+      </g>
+    </g>
+  </g>
+  <!-- ===== Stage 4: Specular light ===== -->
+  <g id="glass-stage4">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.575;0.625;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.575;0.645;1" values="0 10;0 10;0 0;0 0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+      <g transform="translate(623 74)">
+        <rect x="-3" y="-3" width="156" height="196" rx="17" fill="none" stroke="#7aa2f7" stroke-opacity="0.0"/>
+        <g clip-path="url(#glass-clip-panel)">
+          <use xlink:href="#glass-scene"/>
+          <use xlink:href="#glass-body-full"/>
+          <g>
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.61;0.66;1" values="0;0;1;1" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+            <use xlink:href="#glass-L-key"/>
+          </g>
+          <g>
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.66;0.71;1" values="0;0;1;1" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+            <use xlink:href="#glass-L-counter"/>
+          </g>
+          <g>
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.71;0.76;1" values="0;0;1;1" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+            <use xlink:href="#glass-L-fresnel"/>
+          </g>
+        <g transform="translate(46 24)">
+          <rect x="-36" y="-9" width="72" height="18" rx="9" fill="#1a1b26" fill-opacity="0.78" stroke="#c0caf5" stroke-opacity="0.22" stroke-width="0.8"/>
+          <g opacity="1.0"><circle cx="-24" cy="0" r="3.2" fill="#ffe3a3"/><g stroke="#ffe3a3" stroke-width="1.3" stroke-linecap="round"><line x1="-18.60" y1="0.00" x2="-16.20" y2="0.00"/><line x1="-20.18" y1="3.82" x2="-18.48" y2="5.52"/><line x1="-24.00" y1="5.40" x2="-24.00" y2="7.80"/><line x1="-27.82" y1="3.82" x2="-29.52" y2="5.52"/><line x1="-29.40" y1="0.00" x2="-31.80" y2="0.00"/><line x1="-27.82" y1="-3.82" x2="-29.52" y2="-5.52"/><line x1="-24.00" y1="-5.40" x2="-24.00" y2="-7.80"/><line x1="-20.18" y1="-3.82" x2="-18.48" y2="-5.52"/></g></g>
+          <text class="glass-txt" x="-14" y="3.3" font-size="8.6" font-weight="500" fill="#c0caf5" text-anchor="start">key 100%</text>
+        </g>
+        <g transform="translate(106 164)">
+          <rect x="-36" y="-9" width="72" height="18" rx="9" fill="#1a1b26" fill-opacity="0.78" stroke="#c0caf5" stroke-opacity="0.22" stroke-width="0.8"/>
+          <g opacity="0.7"><circle cx="-24" cy="0" r="2.2" fill="#ffe3a3"/><g stroke="#ffe3a3" stroke-width="1.3" stroke-linecap="round"><line x1="-19.60" y1="0.00" x2="-17.20" y2="0.00"/><line x1="-20.89" y1="3.11" x2="-19.19" y2="4.81"/><line x1="-24.00" y1="4.40" x2="-24.00" y2="6.80"/><line x1="-27.11" y1="3.11" x2="-28.81" y2="4.81"/><line x1="-28.40" y1="0.00" x2="-30.80" y2="0.00"/><line x1="-27.11" y1="-3.11" x2="-28.81" y2="-4.81"/><line x1="-24.00" y1="-4.40" x2="-24.00" y2="-6.80"/><line x1="-20.89" y1="-3.11" x2="-19.19" y2="-4.81"/></g></g>
+          <text class="glass-txt" x="-14" y="3.3" font-size="8.6" font-weight="500" fill="#c0caf5" text-anchor="start">fill 40%</text>
+        </g>
+        </g>
+        <rect width="150" height="190" rx="14" fill="none" stroke="#c0caf5" stroke-opacity="0.16"/>
+        <!-- caption -->
+        <circle cx="9" cy="210" r="9" fill="#7aa2f7" fill-opacity="0.18" stroke="#7aa2f7" stroke-opacity="0.7"/>
+        <text class="glass-txt" x="9" y="213.6" font-size="10" font-weight="700" fill="#7aa2f7" text-anchor="middle">4</text>
+        <text class="glass-txt" x="26" y="214.2" font-size="13" font-weight="650" fill="#c0caf5">Specular light</text>
+        <text class="glass-txt" x="1" y="233" font-size="10.5" fill="#9aa5ce">key light top-left, weaker</text>
+        <text class="glass-txt" x="1" y="246" font-size="10.5" fill="#9aa5ce">counter light, Fresnel glow</text>
+      </g>
+    </g>
+  </g>
+  <!-- ===== Stage 5: Result ===== -->
+  <g id="glass-stage5">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.765;0.815;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.765;0.835;1" values="0 10;0 10;0 0;0 0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+      <g transform="translate(821 74)">
+        <rect x="-3" y="-3" width="156" height="196" rx="17" fill="none" stroke="#7aa2f7" stroke-opacity="0.0"/>
+        <g clip-path="url(#glass-clip-panel)">
+          <use xlink:href="#glass-scene-base"/>
+          <!-- soft drop shadow, only outside the capsule -->
+          <g clip-path="url(#glass-clip-outside)">
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.795;0.845;1" values="0;0;1;1" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+            <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" transform="translate(0 9)" fill="#05060c" fill-opacity="0.55" filter="url(#glass-f-shadow)"/>
+          </g>
+          <use xlink:href="#glass-body-plain"/>
+          <use xlink:href="#glass-L-key"/>
+          <use xlink:href="#glass-L-counter"/>
+          <use xlink:href="#glass-L-fresnel"/>
+          <!-- icons floating on the glass -->
+          <g>
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.83;0.88;1" values="0;0;1;1" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1"/>
+            <use xlink:href="#glass-ic-term" x="40" y="95"/>
+            <use xlink:href="#glass-ic-folder" x="75" y="95"/>
+            <use xlink:href="#glass-ic-compass" x="110" y="95"/>
+          </g>
+          <!-- moving specular glint: a dash sliding once around the rim + a soft diagonal sheen -->
+          <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" pathLength="100" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-dasharray="13 87" filter="url(#glass-f-glint)" opacity="0">
+            <animate attributeName="stroke-dashoffset" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.855;0.955;1" values="0;0;-100;-100" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.855;0.87;0.935;0.955;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1"/>
+          </path>
+          <path d="M49 60H101A35 35 0 0 1 101 130H49A35 35 0 0 1 49 60Z" pathLength="100" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="9 91" opacity="0">
+            <animate attributeName="stroke-dashoffset" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.855;0.955;1" values="0;0;-100;-100" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+            <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.855;0.87;0.935;0.955;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1"/>
+          </path>
+          <g clip-path="url(#glass-clip-pill)">
+            <g opacity="0">
+              <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.855;0.875;0.925;0.955;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1"/>
+              <g>
+              <animateTransform attributeName="transform" type="translate" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.855;0.955;1" values="-70 0;-70 0;150 0;150 0" keySplines="0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+                <path d="M26 40L56 40L42 150L12 150Z" fill="url(#glass-sheen)"/>
+              </g>
+            </g>
+          </g>
+        </g>
+        <rect width="150" height="190" rx="14" fill="none" stroke="#c0caf5" stroke-opacity="0.16"/>
+        <!-- caption -->
+        <circle cx="9" cy="210" r="9" fill="#7aa2f7" fill-opacity="0.18" stroke="#7aa2f7" stroke-opacity="0.7"/>
+        <text class="glass-txt" x="9" y="213.6" font-size="10" font-weight="700" fill="#7aa2f7" text-anchor="middle">5</text>
+        <text class="glass-txt" x="26" y="214.2" font-size="13" font-weight="650" fill="#c0caf5">Result</text>
+        <text class="glass-txt" x="1" y="233" font-size="10.5" fill="#9aa5ce">composited over the screen</text>
+        <text class="glass-txt" x="1" y="246" font-size="10.5" fill="#9aa5ce">with a soft shadow</text>
+      </g>
+    </g>
+  </g>
+
+  <g id="glass-op1" transform="translate(203 169)">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.13;0.17;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <circle r="14" fill="#c0caf5" fill-opacity="0.06" stroke="#c0caf5" stroke-opacity="0.16"/>
+    <path d="M-6 0H6M2 -4.5L6.5 0L2 4.5" fill="none" stroke="#7aa2f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="glass-op2" transform="translate(401 169)">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.355;0.395;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <circle r="14" fill="#c0caf5" fill-opacity="0.06" stroke="#c0caf5" stroke-opacity="0.16"/>
+    <path d="M-5.5 0H5.5M0 -5.5V5.5" fill="none" stroke="#bb9af7" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g id="glass-op3" transform="translate(599 169)">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.545;0.585;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <circle r="14" fill="#c0caf5" fill-opacity="0.06" stroke="#c0caf5" stroke-opacity="0.16"/>
+    <path d="M-5.5 0H5.5M0 -5.5V5.5" fill="none" stroke="#bb9af7" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g id="glass-op4" transform="translate(797 169)">
+    <animate attributeName="opacity" dur="10s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.735;0.775;0.955;0.995;1" values="0;0;1;1;0;0" keySplines="0 0 1 1;0.16 0.84 0.3 1;0 0 1 1;0.65 0 0.35 1;0 0 1 1"/>
+    <circle r="14" fill="#c0caf5" fill-opacity="0.06" stroke="#c0caf5" stroke-opacity="0.16"/>
+    <path d="M-6 0H6M2 -4.5L6.5 0L2 4.5" fill="none" stroke="#7aa2f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- ===== Footer legend ===== -->
+  <path d="M29 336H971" stroke="#c0caf5" stroke-opacity="0.12"/>
+  <g transform="translate(500 357)">
+    <rect x="-272" y="-11" width="544" height="22" rx="11" fill="#c0caf5" fill-opacity="0.05"/>
+    <circle cx="-260" cy="0" r="3" fill="#9ece6a"/>
+    <text class="glass-txt" x="0" y="3.8" font-size="11.5" fill="#9aa5ce" text-anchor="middle">Rendered in a GLSL ES 3.0 fragment shader - about 0.15 ms per frame on an Intel Iris Xe</text>
+  </g>
+
+  <!-- loop progress -->
+  <rect class="glass-progress" x="29" y="373" width="942" height="2" rx="1" fill="#c0caf5" fill-opacity="0.08"/>
+  <rect class="glass-progress" x="29" y="373" width="942" height="2" rx="1" fill="#7aa2f7" fill-opacity="0.7">
+    <animate attributeName="width" from="0" to="942" dur="10s" repeatCount="indefinite"/>
+  </rect>
+</svg>

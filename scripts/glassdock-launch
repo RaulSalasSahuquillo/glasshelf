@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# glassdock-launch - start GlassDock inside a Hyprland session and keep it alive.
+#
+#   exec-once = glassdock-launch            # in ~/.config/hypr/hyprland.conf
+#
+# * Runs a single instance (flock).
+# * Restarts the dock if it crashes (non-zero exit or killed by a signal), with a back-off
+#   when it dies right after starting so a broken setup cannot spin the CPU.
+# * Stops for good when the dock exits cleanly (exit code 0: `glassdockctl quit`, or the
+#   compositor went away).
+#
+# Environment (all optional):
+#   GLASSDOCK_BIN       path to the glassdock binary (default: next to this script, then $PATH)
+#   GLASSDOCK_OUTPUTS   comma-separated monitor names to show the dock on (default: all)
+#   GLASSDOCK_PINNED    path of the pinned-apps JSON (default: ~/.config/glassdock/pinned.json)
+#   GLASSDOCK_LANG      "en" or "es" (default: from your locale)
+#   GLASSDOCK_DEBUG     set to anything to log input/capture events to stderr
+
+set -u
+
+die() { echo "glassdock-launch: $*" >&2; exit 1; }
+
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    die "WAYLAND_DISPLAY is not set; start it from inside your Hyprland session"
+fi
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "${GLASSDOCK_BIN:-}" ]; then
+    bin="$GLASSDOCK_BIN"
+elif [ -x "$script_dir/glassdock" ]; then
+    bin="$script_dir/glassdock"
+elif command -v glassdock >/dev/null 2>&1; then
+    bin="$(command -v glassdock)"
+else
+    die "cannot find the glassdock binary (run scripts/install.sh, or set GLASSDOCK_BIN)"
+fi
+[ -x "$bin" ] || die "$bin is not executable"
+
+lock="${XDG_RUNTIME_DIR:-/tmp}/glassdock-launch.lock"
+exec 9>"$lock"
+if ! flock -n 9; then
+    echo "glassdock-launch: already running" >&2
+    exit 0
+fi
+
+child=""
+cleanup() {
+    [ -n "$child" ] && kill "$child" 2>/dev/null
+    exit 0
+}
+trap cleanup TERM INT HUP
+
+log() { command -v logger >/dev/null 2>&1 && logger -t glassdock "$*"; }
+
+while true; do
+    started=$(date +%s)
+    "$bin" "$@" &
+    child=$!
+    wait "$child"
+    code=$?
+    child=""
+    elapsed=$(( $(date +%s) - started ))
+
+    if [ "$code" -eq 0 ]; then
+        log "exited cleanly after ${elapsed}s; not restarting"
+        exit 0
+    fi
+    log "exited with code $code after ${elapsed}s; restarting"
+    if [ "$elapsed" -lt 3 ]; then sleep 5; else sleep 0.5; fi
+done

@@ -1,0 +1,387 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" role="img" aria-labelledby="arch-title arch-desc" font-family="Inter, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif">
+  <title id="arch-title">GlassDock architecture</title>
+  <desc id="arch-desc">Data flow diagram. Hyprland sends IPC events (socket2) to the Model, screen captures (wlr-screencopy) to a mipmapped backdrop texture, and pointer and layer-shell input to the layout and animation state. All three feed the GLES 3 renderer (glass shader, icons and labels, menu) which draws into one wlr-layer-shell surface per screen; surface commits return to Hyprland. A single process redraws only while animating.</desc>
+
+  <style>
+    /* Dashes flow for 6 s of the 8 s loop, then freeze: the dock is idle and uses no CPU. */
+    .arch-flow { animation: arch-dash 8s linear infinite; }
+    @keyframes arch-dash { 0% { stroke-dashoffset: 0; } 75% { stroke-dashoffset: -72; } 100% { stroke-dashoffset: -72; } }
+    .arch-t  { fill: #c0caf5; font-weight: 700; }
+    .arch-s  { fill: #9aa5ce; }
+    .arch-m  { font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace; }
+    @media (prefers-reduced-motion: reduce) {
+      .arch-flow { animation: none; }
+      .arch-packet, .arch-pulse, .arch-idle { display: none; }
+    }
+  </style>
+
+  <defs>
+    <!-- Background -->
+    <clipPath id="arch-clip"><rect width="1000" height="440" rx="18"/></clipPath>
+    <pattern id="arch-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#7aa2f7" stroke-opacity="0.07" stroke-width="1"/>
+      <circle cx="0" cy="0" r="1.2" fill="#7aa2f7" fill-opacity="0.16"/>
+    </pattern>
+    <radialGradient id="arch-bloom-b"><stop offset="0" stop-color="#7aa2f7" stop-opacity="0.26"/><stop offset="1" stop-color="#7aa2f7" stop-opacity="0"/></radialGradient>
+    <radialGradient id="arch-bloom-p"><stop offset="0" stop-color="#bb9af7" stop-opacity="0.2"/><stop offset="1" stop-color="#bb9af7" stop-opacity="0"/></radialGradient>
+    <radialGradient id="arch-bloom-c"><stop offset="0" stop-color="#7dcfff" stop-opacity="0.15"/><stop offset="1" stop-color="#7dcfff" stop-opacity="0"/></radialGradient>
+
+    <!-- Glass surfaces: soft fill, bright rim top-left, weaker counter light bottom-right -->
+    <linearGradient id="arch-glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.12"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.025"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.06"/>
+    </linearGradient>
+    <linearGradient id="arch-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.35" stop-color="#fff" stop-opacity="0.10"/>
+      <stop offset="0.7" stop-color="#fff" stop-opacity="0.07"/><stop offset="1" stop-color="#fff" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="arch-screen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2e47"/><stop offset="1" stop-color="#1a1b26"/>
+    </linearGradient>
+    <filter id="arch-shadow" x="-10%" y="-10%" width="120%" height="130%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#05060d" flood-opacity="0.55"/>
+    </filter>
+
+    <!-- Packet glows -->
+    <radialGradient id="arch-glow-purple"><stop offset="0" stop-color="#bb9af7" stop-opacity="0.85"/><stop offset="0.45" stop-color="#bb9af7" stop-opacity="0.28"/><stop offset="1" stop-color="#bb9af7" stop-opacity="0"/></radialGradient>
+    <radialGradient id="arch-glow-cyan"><stop offset="0" stop-color="#7dcfff" stop-opacity="0.85"/><stop offset="0.45" stop-color="#7dcfff" stop-opacity="0.28"/><stop offset="1" stop-color="#7dcfff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="arch-glow-orange"><stop offset="0" stop-color="#ff9e64" stop-opacity="0.85"/><stop offset="0.45" stop-color="#ff9e64" stop-opacity="0.28"/><stop offset="1" stop-color="#ff9e64" stop-opacity="0"/></radialGradient>
+    <radialGradient id="arch-glow-blue"><stop offset="0" stop-color="#7aa2f7" stop-opacity="0.85"/><stop offset="0.45" stop-color="#7aa2f7" stop-opacity="0.28"/><stop offset="1" stop-color="#7aa2f7" stop-opacity="0"/></radialGradient>
+    <radialGradient id="arch-glow-green"><stop offset="0" stop-color="#9ece6a" stop-opacity="0.85"/><stop offset="0.45" stop-color="#9ece6a" stop-opacity="0.28"/><stop offset="1" stop-color="#9ece6a" stop-opacity="0"/></radialGradient>
+
+    <!-- Arrowheads -->
+    <marker id="arch-ah-purple" viewBox="0 0 9 9" refX="8.5" refY="4.5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0.5L9 4.5L0 8.5L2.2 4.5Z" fill="#bb9af7"/></marker>
+    <marker id="arch-ah-cyan" viewBox="0 0 9 9" refX="8.5" refY="4.5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0.5L9 4.5L0 8.5L2.2 4.5Z" fill="#7dcfff"/></marker>
+    <marker id="arch-ah-orange" viewBox="0 0 9 9" refX="8.5" refY="4.5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0.5L9 4.5L0 8.5L2.2 4.5Z" fill="#ff9e64"/></marker>
+    <marker id="arch-ah-blue" viewBox="0 0 9 9" refX="8.5" refY="4.5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0.5L9 4.5L0 8.5L2.2 4.5Z" fill="#7aa2f7"/></marker>
+    <marker id="arch-ah-green" viewBox="0 0 9 9" refX="8.5" refY="4.5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0 0.5L9 4.5L0 8.5L2.2 4.5Z" fill="#9ece6a"/></marker>
+
+    <!-- 20x20 icons (stroke based) -->
+    <g id="arch-ico-model" fill="none" stroke="#bb9af7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="10" cy="4.5" rx="6.5" ry="2.5"/><path d="M3.5 4.5V15.5C3.5 17 6.4 18 10 18S16.5 17 16.5 15.5V4.5"/><path d="M3.5 10C3.5 11.4 6.4 12.5 10 12.5S16.5 11.4 16.5 10"/></g>
+    <g id="arch-ico-tex" fill="none" stroke="#7dcfff" stroke-width="1.5" stroke-linejoin="round"><rect x="1.5" y="3" width="10.5" height="10.5" rx="2"/><rect x="13.5" y="3" width="5" height="5" rx="1.2"/><rect x="13.5" y="10" width="2.6" height="2.6" rx="0.8"/><path d="M1.5 17.5H12" stroke-linecap="round" stroke-opacity="0.6"/></g>
+    <g id="arch-ico-layout" fill="#ff9e64" fill-opacity="0.16" stroke="#ff9e64" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5V15.5L7.4 12.4L9.6 17.2L11.8 16.2L9.7 11.6L14.4 11.6Z"/><path fill="none" d="M14 3.5C16.6 4.2 17.6 6.3 17.2 8.2" stroke-opacity="0.7"/></g>
+    <g id="arch-ico-gpu" fill="none" stroke="#7aa2f7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="11" height="11" rx="2.4"/><rect x="8" y="8" width="4" height="4" rx="1" fill="#7aa2f7" fill-opacity="0.35"/><path d="M7.5 1.5V4.5M12.5 1.5V4.5M7.5 15.5V18.5M12.5 15.5V18.5M1.5 7.5H4.5M1.5 12.5H4.5M15.5 7.5H18.5M15.5 12.5H18.5"/></g>
+    <g id="arch-ico-layer" fill="none" stroke="#9ece6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5L18 6.6L10 10.7L2 6.6Z" fill="#9ece6a" fill-opacity="0.18"/><path d="M2 10.4L10 14.5L18 10.4"/><path d="M2 14L10 18L18 14" stroke-opacity="0.6"/></g>
+  </defs>
+
+  <!-- ===== Background ===== -->
+  <g clip-path="url(#arch-clip)">
+    <rect width="1000" height="440" fill="#1a1b26"/>
+    <ellipse cx="120" cy="330" rx="300" ry="230" fill="url(#arch-bloom-b)"/>
+    <ellipse cx="560" cy="70" rx="320" ry="190" fill="url(#arch-bloom-p)"/>
+    <ellipse cx="900" cy="330" rx="260" ry="200" fill="url(#arch-bloom-c)"/>
+    <rect width="1000" height="440" fill="url(#arch-grid)"/>
+  </g>
+  <rect x="0.5" y="0.5" width="999" height="439" rx="17.5" fill="none" stroke="#3b4261" stroke-width="1"/>
+
+  <!-- ===== Header ===== -->
+  <text x="24" y="31" font-size="15" class="arch-t">GlassDock architecture<tspan class="arch-s" font-weight="400" font-size="12.5">  one frame, end to end</tspan></text>
+  <g>
+    <rect x="842" y="13" width="134" height="26" rx="13" fill="#fff" fill-opacity="0.05" stroke="#fff" stroke-opacity="0.16"/>
+    <g class="arch-live">
+      <circle cx="860" cy="26" r="3.6" fill="#9ece6a"><animate attributeName="opacity" values="1;0.35;1" dur="1s" repeatCount="indefinite"/></circle>
+      <text x="871" y="30" font-size="11.5" font-weight="600" fill="#9ece6a">redrawing</text>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="1;1;0;0;1" keyTimes="0;0.74;0.75;0.985;1"/>
+    </g>
+    <g class="arch-idle" opacity="0">
+      <circle cx="860" cy="26" r="3.6" fill="#6b7394"/>
+      <text x="871" y="30" font-size="11.5" font-weight="600" fill="#9aa5ce">idle <tspan font-weight="400">- 0% CPU</tspan></text>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.75;0.76;0.975;0.985;1"/>
+    </g>
+  </g>
+
+  <!-- ===== Flow lines (dashes move along the direction of travel) ===== -->
+  <g id="arch-lines">
+    <path d="M144 134H295" fill="none" stroke="#bb9af7" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M144 134H295" fill="none" stroke="#bb9af7" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-purple)"/>
+    <path d="M476 134H523" fill="none" stroke="#bb9af7" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M476 134H523" fill="none" stroke="#bb9af7" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-purple)"/>
+    <path d="M144 214H295" fill="none" stroke="#7dcfff" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M144 214H295" fill="none" stroke="#7dcfff" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-cyan)"/>
+    <path d="M476 214H523" fill="none" stroke="#7dcfff" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M476 214H523" fill="none" stroke="#7dcfff" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-cyan)"/>
+    <path d="M144 294H295" fill="none" stroke="#ff9e64" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M144 294H295" fill="none" stroke="#ff9e64" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-orange)"/>
+    <path d="M476 294H523" fill="none" stroke="#ff9e64" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M476 294H523" fill="none" stroke="#ff9e64" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-orange)"/>
+    <path d="M744 214H795" fill="none" stroke="#7aa2f7" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M744 214H795" fill="none" stroke="#7aa2f7" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-blue)"/>
+    <path d="M891 341V356a8 8 0 0 1 -8 8H87a8 8 0 0 1 -8 -8V341" fill="none" stroke="#9ece6a" stroke-opacity="0.18" stroke-width="1.8"/>
+    <path class="arch-flow" d="M891 341V356a8 8 0 0 1 -8 8H87a8 8 0 0 1 -8 -8V341" fill="none" stroke="#9ece6a" stroke-width="1.8" stroke-dasharray="6 6" marker-end="url(#arch-ah-green)"/>
+  </g>
+
+  <!-- ===== Hyprland (compositor) ===== -->
+  <g id="arch-hypr">
+    <rect x="14" y="54" width="130" height="286" rx="16" fill="#24283b" fill-opacity="0.74" filter="url(#arch-shadow)"/>
+    <rect x="14" y="54" width="130" height="286" rx="16" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+    <rect x="14" y="54" width="130" height="286" rx="16" fill="#7aa2f7" fill-opacity="0.05"/>
+    <text x="79" y="80" text-anchor="middle" font-size="14.5" class="arch-t">Hyprland</text>
+    <text x="79" y="96" text-anchor="middle" font-size="10.5" class="arch-s">compositor</text>
+    <rect x="26" y="112" width="106" height="176" rx="9" fill="url(#arch-screen)" stroke="#fff" stroke-opacity="0.18"/>
+    <rect x="32" y="118" width="52" height="132" rx="5" fill="#7aa2f7" fill-opacity="0.22" stroke="#7aa2f7" stroke-opacity="0.55"/>
+    <rect x="90" y="118" width="36" height="63" rx="5" fill="#bb9af7" fill-opacity="0.22" stroke="#bb9af7" stroke-opacity="0.55"/>
+    <rect x="90" y="187" width="36" height="63" rx="5" fill="#7dcfff" fill-opacity="0.2" stroke="#7dcfff" stroke-opacity="0.5"/>
+    <path d="M38 126H78M38 133H66M96 126H120M96 195H120M96 202H112" stroke="#fff" stroke-opacity="0.22" stroke-width="2" stroke-linecap="round"/>
+    <rect x="38" y="258" width="82" height="22" rx="11" fill="#fff" fill-opacity="0.10" stroke="#fff" stroke-opacity="0.45"/>
+    <rect x="45" y="262" width="14" height="14" rx="4" fill="#7aa2f7" fill-opacity="0.75"/>
+    <rect x="63" y="262" width="14" height="14" rx="4" fill="#bb9af7" fill-opacity="0.75"/>
+    <rect x="81" y="262" width="14" height="14" rx="4" fill="#7dcfff" fill-opacity="0.75"/>
+    <rect x="99" y="262" width="14" height="14" rx="4" fill="#9ece6a" fill-opacity="0.75"/>
+    <rect x="47" y="277.5" width="10" height="2" rx="1" fill="#7aa2f7"/>
+    <circle cx="144" cy="134" r="4.6" fill="#1a1b26" stroke="#bb9af7" stroke-width="2"/>
+    <circle cx="144" cy="214" r="4.6" fill="#1a1b26" stroke="#7dcfff" stroke-width="2"/>
+    <circle cx="144" cy="294" r="4.6" fill="#1a1b26" stroke="#ff9e64" stroke-width="2"/>
+    <rect class="arch-pulse" x="14" y="54" width="130" height="286" rx="16" fill="#7aa2f7" fill-opacity="0.14" stroke="#7aa2f7" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0;0.015;0.0838;1"/>
+    </rect>
+    <rect class="arch-pulse" x="14" y="54" width="130" height="286" rx="16" fill="#9ece6a" fill-opacity="0.14" stroke="#9ece6a" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.6875;0.7025;0.7712;1"/>
+    </rect>
+  </g>
+
+  <!-- ===== Channel labels ===== -->
+  <text x="220" y="113" text-anchor="middle" font-size="11" font-weight="600" class="arch-m" fill="#bb9af7">IPC events</text>
+  <text x="220" y="126" text-anchor="middle" font-size="10" class="arch-m" fill="#bb9af7" fill-opacity="0.75">(socket2)</text>
+  <text x="220" y="193" text-anchor="middle" font-size="11" font-weight="600" class="arch-m" fill="#7dcfff">wlr-screencopy</text>
+  <text x="220" y="206" text-anchor="middle" font-size="10" class="arch-m" fill="#7dcfff" fill-opacity="0.75">(frames)</text>
+  <text x="220" y="273" text-anchor="middle" font-size="11" font-weight="600" class="arch-m" fill="#ff9e64">wl_pointer /</text>
+  <text x="220" y="286" text-anchor="middle" font-size="10" class="arch-m" fill="#ff9e64" fill-opacity="0.75">layer-shell input</text>
+
+  <!-- ===== Model / backdrop / layout ===== -->
+  <g id="arch-model">
+    <rect x="296" y="100" width="180" height="68" rx="14" fill="#24283b" fill-opacity="0.74" filter="url(#arch-shadow)"/>
+    <rect x="296" y="100" width="180" height="68" rx="14" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+    <rect x="296" y="100" width="180" height="68" rx="14" fill="#bb9af7" fill-opacity="0.05"/>
+    <use href="#arch-ico-model" x="308" y="109"/>
+    <text x="334" y="124" font-size="13" class="arch-t">Model</text>
+    <text x="310" y="143" font-size="10" class="arch-s">desktop entries, icons,</text>
+    <text x="310" y="156" font-size="10" class="arch-s">windows, pinned apps</text>
+    <rect class="arch-pulse" x="296" y="100" width="180" height="68" rx="14" fill="#bb9af7" fill-opacity="0.14" stroke="#bb9af7" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.175;0.19;0.2587;1"/>
+    </rect>
+  </g>
+  <g id="arch-backdrop">
+    <rect x="296" y="180" width="180" height="68" rx="14" fill="#24283b" fill-opacity="0.74" filter="url(#arch-shadow)"/>
+    <rect x="296" y="180" width="180" height="68" rx="14" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+    <rect x="296" y="180" width="180" height="68" rx="14" fill="#7dcfff" fill-opacity="0.05"/>
+    <use href="#arch-ico-tex" x="308" y="189"/>
+    <text x="334" y="204" font-size="13" class="arch-t">Backdrop texture</text>
+    <text x="310" y="223" font-size="10" class="arch-s">mipmapped screenshot,</text>
+    <text x="310" y="236" font-size="10" class="arch-s">sampled by the glass shader</text>
+    <rect class="arch-pulse" x="296" y="180" width="180" height="68" rx="14" fill="#7dcfff" fill-opacity="0.14" stroke="#7dcfff" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.2;0.215;0.2838;1"/>
+    </rect>
+  </g>
+  <g id="arch-layout">
+    <rect x="296" y="260" width="180" height="68" rx="14" fill="#24283b" fill-opacity="0.74" filter="url(#arch-shadow)"/>
+    <rect x="296" y="260" width="180" height="68" rx="14" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+    <rect x="296" y="260" width="180" height="68" rx="14" fill="#ff9e64" fill-opacity="0.05"/>
+    <use href="#arch-ico-layout" x="308" y="269"/>
+    <text x="334" y="284" font-size="13" class="arch-t">Layout &amp; animation</text>
+    <text x="310" y="303" font-size="10" class="arch-s">magnification springs,</text>
+    <text x="310" y="316" font-size="10" class="arch-s">reveal &amp; hold timers</text>
+    <rect class="arch-pulse" x="296" y="260" width="180" height="68" rx="14" fill="#ff9e64" fill-opacity="0.14" stroke="#ff9e64" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.15;0.165;0.2338;1"/>
+    </rect>
+  </g>
+
+  <!-- ===== GLES 3 renderer ===== -->
+  <g id="arch-renderer">
+    <rect x="524" y="54" width="220" height="286" rx="18" fill="#24283b" fill-opacity="0.74" filter="url(#arch-shadow)"/>
+    <rect x="524" y="54" width="220" height="286" rx="18" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+    <rect x="524" y="54" width="220" height="286" rx="18" fill="#7aa2f7" fill-opacity="0.05"/>
+    <use href="#arch-ico-gpu" x="540" y="63"/>
+    <text x="568" y="78" font-size="14" class="arch-t">GLES 3 renderer</text>
+    <text x="540" y="97" font-size="10.5" class="arch-s">one EGL context shared by all screens</text>
+    <rect x="540" y="112" width="188" height="44" rx="12" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.2"/>
+    <rect x="540" y="121" width="3.5" height="26" rx="1.75" fill="#bb9af7"/>
+    <text x="556" y="131" font-size="12.5" class="arch-t">Icons &amp; labels</text>
+    <text x="556" y="146" font-size="9.5" class="arch-s">icon quads, name pill, dots</text>
+    <rect class="arch-pulse" x="540" y="112" width="188" height="44" rx="12" fill="#bb9af7" fill-opacity="0.14" stroke="#bb9af7" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.2687;0.2838;0.3525;1"/>
+    </rect>
+    <rect x="540" y="192" width="188" height="44" rx="12" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.2"/>
+    <rect x="540" y="201" width="3.5" height="26" rx="1.75" fill="#7dcfff"/>
+    <text x="556" y="211" font-size="12.5" class="arch-t">Glass shader</text>
+    <text x="556" y="226" font-size="9.5" class="arch-s">refraction, dispersion, rim light</text>
+    <rect class="arch-pulse" x="540" y="192" width="188" height="44" rx="12" fill="#7dcfff" fill-opacity="0.14" stroke="#7dcfff" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.2938;0.3088;0.3775;1"/>
+    </rect>
+    <rect x="540" y="272" width="188" height="44" rx="12" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.2"/>
+    <rect x="540" y="281" width="3.5" height="26" rx="1.75" fill="#ff9e64"/>
+    <text x="556" y="291" font-size="12.5" class="arch-t">Menu</text>
+    <text x="556" y="306" font-size="9.5" class="arch-s">right-click, drawn by the dock</text>
+    <rect class="arch-pulse" x="540" y="272" width="188" height="44" rx="12" fill="#ff9e64" fill-opacity="0.14" stroke="#ff9e64" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.2437;0.2587;0.3275;1"/>
+    </rect>
+    <rect class="arch-pulse" x="524" y="54" width="220" height="286" rx="18" fill="#7aa2f7" fill-opacity="0.14" stroke="#7aa2f7" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.3;0.315;0.3837;1"/>
+    </rect>
+  </g>
+
+  <!-- ===== wlr-layer-shell surface ===== -->
+  <g id="arch-surface">
+    <rect x="796" y="54" width="190" height="286" rx="18" fill="#24283b" fill-opacity="0.74" filter="url(#arch-shadow)"/>
+    <rect x="796" y="54" width="190" height="286" rx="18" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+    <rect x="796" y="54" width="190" height="286" rx="18" fill="#9ece6a" fill-opacity="0.05"/>
+    <use href="#arch-ico-layer" x="810" y="63"/>
+    <text x="838" y="78" font-size="14" class="arch-t">wlr-layer-shell</text>
+    <text x="810" y="97" font-size="10.5" class="arch-s">surface, one per screen</text>
+    <rect x="812" y="138" width="72" height="50" rx="7" fill="url(#arch-screen)" stroke="#fff" stroke-opacity="0.22"/>
+    <path d="M820 146H852" stroke="#fff" stroke-opacity="0.16" stroke-width="2" stroke-linecap="round"/>
+    <rect x="826" y="170" width="44" height="12" rx="6" fill="#fff" fill-opacity="0.12" stroke="#fff" stroke-opacity="0.5"/>
+    <circle cx="834.0" cy="176" r="2.6" fill="#7aa2f7" fill-opacity="0.85"/>
+    <circle cx="843.4" cy="176" r="2.6" fill="#bb9af7" fill-opacity="0.85"/>
+    <circle cx="852.8" cy="176" r="2.6" fill="#7dcfff" fill-opacity="0.85"/>
+    <circle cx="862.2" cy="176" r="2.6" fill="#ff9e64" fill-opacity="0.85"/>
+    <text x="848" y="204" text-anchor="middle" font-size="9.5" class="arch-s arch-m">DP-1</text>
+    <rect class="arch-pulse" x="812" y="138" width="72" height="50" rx="7" fill="#9ece6a" fill-opacity="0.14" stroke="#9ece6a" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.4313;0.4463;0.515;1"/>
+    </rect>
+    <rect x="898" y="138" width="72" height="50" rx="7" fill="url(#arch-screen)" stroke="#fff" stroke-opacity="0.22"/>
+    <path d="M906 146H938" stroke="#fff" stroke-opacity="0.16" stroke-width="2" stroke-linecap="round"/>
+    <rect x="912" y="170" width="44" height="12" rx="6" fill="#fff" fill-opacity="0.12" stroke="#fff" stroke-opacity="0.5"/>
+    <circle cx="920.0" cy="176" r="2.6" fill="#7aa2f7" fill-opacity="0.85"/>
+    <circle cx="929.4" cy="176" r="2.6" fill="#bb9af7" fill-opacity="0.85"/>
+    <circle cx="938.8" cy="176" r="2.6" fill="#7dcfff" fill-opacity="0.85"/>
+    <circle cx="948.2" cy="176" r="2.6" fill="#ff9e64" fill-opacity="0.85"/>
+    <text x="934" y="204" text-anchor="middle" font-size="9.5" class="arch-s arch-m">HDMI-A-1</text>
+    <rect class="arch-pulse" x="898" y="138" width="72" height="50" rx="7" fill="#9ece6a" fill-opacity="0.14" stroke="#9ece6a" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.4313;0.4463;0.515;1"/>
+    </rect>
+    <rect x="810" y="240" width="162" height="32" rx="10" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.2"/>
+    <circle cx="826" cy="256" r="3.4" fill="#9ece6a"/>
+    <text x="838" y="260" font-size="11.5" font-weight="600" class="arch-t" style="font-weight:600">fractional scale</text>
+    <rect x="810" y="284" width="162" height="32" rx="10" fill="#fff" fill-opacity="0.06" stroke="#fff" stroke-opacity="0.2"/>
+    <circle cx="826" cy="300" r="3.4" fill="#9ece6a"/>
+    <text x="838" y="304" font-size="11.5" font-weight="600" class="arch-t" style="font-weight:600">viewport</text>
+    <rect class="arch-pulse" x="796" y="54" width="190" height="286" rx="18" fill="#9ece6a" fill-opacity="0.14" stroke="#9ece6a" stroke-width="1.6" opacity="0">
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;0.425;0.44;0.5088;1"/>
+    </rect>
+  </g>
+
+  <!-- ===== Return path label ===== -->
+  <rect x="337" y="355" width="296" height="18" rx="9" fill="#1a1b26" stroke="#9ece6a" stroke-opacity="0.45"/>
+  <text x="485" y="367.5" text-anchor="middle" font-size="10.5" class="arch-m" fill="#9ece6a">surface commit, compositor presents the frame</text>
+
+  <!-- ===== Caption strip ===== -->
+  <rect x="14" y="388" width="972" height="38" rx="19" fill="#24283b" fill-opacity="0.78" filter="url(#arch-shadow)"/>
+  <rect x="14" y="388" width="972" height="38" rx="19" fill="url(#arch-glass)" stroke="url(#arch-rim)" stroke-width="1.2"/>
+  <text x="500" y="411.5" text-anchor="middle" font-size="12.5" fill="#c0caf5" font-weight="600">Single process<tspan fill="#7aa2f7" font-weight="700">  &#183;  </tspan>one surface per monitor<tspan fill="#7aa2f7" font-weight="700">  &#183;  </tspan>redraws only while animating<tspan fill="#7aa2f7" font-weight="700">  &#183;  </tspan>Intel iGPU via Mesa <tspan fill="#9aa5ce" font-weight="400">(NVIDIA stays asleep)</tspan></text>
+
+  <!-- ===== Data packets (SMIL, one trip per 8 s loop) ===== -->
+  <g id="arch-packets">
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-purple)"/>
+      <circle r="3.9" fill="#bb9af7"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M144 134H295" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.05;0.175;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.05;0.0725;0.1525;0.175;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-purple)"/>
+      <circle r="2.535" fill="#bb9af7"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M144 134H295" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.075;0.2;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.075;0.0975;0.1775;0.2;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-cyan)"/>
+      <circle r="3.9" fill="#7dcfff"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M144 214H295" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.075;0.2;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.075;0.0975;0.1775;0.2;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-cyan)"/>
+      <circle r="2.535" fill="#7dcfff"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M144 214H295" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.1;0.225;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.1;0.1225;0.2025;0.225;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-orange)"/>
+      <circle r="3.9" fill="#ff9e64"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M144 294H295" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.025;0.15;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.025;0.0475;0.1275;0.15;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-orange)"/>
+      <circle r="2.535" fill="#ff9e64"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M144 294H295" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.05;0.175;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.05;0.0725;0.1525;0.175;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-purple)"/>
+      <circle r="3.9" fill="#bb9af7"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M476 134H523" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.1938;0.2687;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.1938;0.2162;0.2462;0.2687;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-purple)"/>
+      <circle r="2.535" fill="#bb9af7"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M476 134H523" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.2087;0.2838;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.2087;0.2312;0.2612;0.2838;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-cyan)"/>
+      <circle r="3.9" fill="#7dcfff"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M476 214H523" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.2188;0.2938;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.2188;0.2412;0.2712;0.2938;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-cyan)"/>
+      <circle r="2.535" fill="#7dcfff"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M476 214H523" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.2338;0.3088;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.2338;0.2563;0.2863;0.3088;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-orange)"/>
+      <circle r="3.9" fill="#ff9e64"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M476 294H523" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.1688;0.2437;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.1688;0.1913;0.2213;0.2437;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-orange)"/>
+      <circle r="2.535" fill="#ff9e64"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M476 294H523" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.1838;0.2587;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.1838;0.2063;0.2362;0.2587;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-blue)"/>
+      <circle r="3.9" fill="#7aa2f7"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M744 214H795" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.3312;0.425;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.3312;0.3538;0.4025;0.425;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-blue)"/>
+      <circle r="2.535" fill="#7aa2f7"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M744 214H795" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.35;0.4437;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.35;0.3725;0.4212;0.4437;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="14" fill="url(#arch-glow-green)"/>
+      <circle r="3.9" fill="#9ece6a"/>
+      <circle r="1.6" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M891 341V356a8 8 0 0 1 -8 8H87a8 8 0 0 1 -8 -8V341" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.4625;0.6875;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;1;1;0;0" keyTimes="0;0.4625;0.485;0.665;0.6875;1"/>
+    </g>
+    <g class="arch-packet" opacity="0">
+      <circle r="9.1" fill="url(#arch-glow-green)"/>
+      <circle r="2.535" fill="#9ece6a"/>
+      <circle r="1.04" fill="#fff" fill-opacity="0.95"/>
+      <animateMotion dur="8s" repeatCount="indefinite" path="M891 341V356a8 8 0 0 1 -8 8H87a8 8 0 0 1 -8 -8V341" calcMode="spline" keyPoints="0;0;1;1" keyTimes="0;0.4938;0.7188;1" keySplines="0 0 1 1;.35 0 .65 1;0 0 1 1"/>
+      <animate attributeName="opacity" dur="8s" repeatCount="indefinite" values="0;0;0.75;0.75;0;0" keyTimes="0;0.4938;0.5162;0.6963;0.7188;1"/>
+    </g>
+  </g>
+</svg>

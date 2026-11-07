@@ -1,0 +1,43 @@
+[package]
+name = "glassdock"
+version = "0.1.0"
+edition = "2021"
+description = "A liquid-glass dock for Hyprland with macOS-style magnification (GLES 3, wlr-layer-shell, Rust)"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/OWNER/glassdock"
+keywords = ["hyprland", "wayland", "dock", "wlroots", "opengl"]
+categories = ["gui"]
+
+[dependencies]
+# Wayland: layer-shell surfaces, outputs, seat/pointer (keyboard support is not needed, so no xkbcommon).
+smithay-client-toolkit = { version = "0.20", default-features = false, features = ["calloop"] }
+wayland-client = "0.31"
+# `client_system` exposes the raw wl_display / wl_surface pointers that EGL needs.
+wayland-backend = { version = "0.3", features = ["client_system"] }
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }    # fractional-scale, viewporter, cursor-shape
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }             # screencopy
+wayland-sys = { version = "0.31", features = ["client", "egl", "dlopen"] }     # wl_egl_window
+# OpenGL ES 3 through EGL.
+khronos-egl = { version = "6", features = ["dynamic"] }
+glow = "0.17"
+# CPU rasterisation of icons (SVG/PNG) and text.
+resvg = { version = "0.45", default-features = false }
+usvg = { version = "0.45", default-features = false }
+tiny-skia = "0.11"
+skrifa = "0.44"
+png = "0.17"
+# Misc.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rustix = { version = "1", features = ["fs"] }
+memmap2 = "0.9"
+bytemuck = { version = "1", features = ["derive"] }
+anyhow = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+panic = "abort"
+strip = true

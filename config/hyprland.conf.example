@@ -1,0 +1,28 @@
+# GlassDock - example Hyprland configuration (Hyprland 0.53 syntax).
+# Copy what you need into ~/.config/hypr/hyprland.conf.
+
+# --- 1. Start the dock with Hyprland ---------------------------------------------------------
+# glassdock-launch keeps it running (it restarts the dock if it ever crashes).
+exec-once = glassdock-launch
+
+# --- 2. Optional settings (environment of the dock) ------------------------------------------
+# Show the dock only on some monitors (comma separated, default: all of them).
+# env = GLASSDOCK_OUTPUTS,eDP-1,HDMI-A-1
+# Force the language of the dock's own menus ("en" or "es"; default: your locale).
+# env = GLASSDOCK_LANG,en
+# Use a different pinned-apps file (default: ~/.config/glassdock/pinned.json).
+# env = GLASSDOCK_PINNED,/path/to/pinned.json
+
+# --- 3. Monitor layout ------------------------------------------------------------------------
+# With `auto` the order of external monitors depends on which one Hyprland detects first and can
+# change between sessions. Pin the positions explicitly (names: `hyprctl monitors`):
+# monitor = eDP-1,    preferred, 0x0,    1.6
+# monitor = HDMI-A-1, preferred, 1600x0, 1
+# monitor = DP-1,     preferred, 3520x0, 1
+
+# --- 4. "Minimize" (Hyprland has none) --------------------------------------------------------
+# Hide the focused window in a special workspace, and toggle that workspace to bring windows
+# back. The dock's context menu has a "Minimize" entry that does the same, and clicking the app
+# icon in the dock restores the window.
+bind = SUPER,       H, movetoworkspacesilent, special:minimized
+bind = SUPER SHIFT, H, togglespecialworkspace, minimized

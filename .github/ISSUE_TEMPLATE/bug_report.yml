@@ -1,0 +1,44 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: GlassDock version
+      description: Output of `glassdock --version`
+    validations:
+      required: true
+  - type: input
+    id: hyprland
+    attributes:
+      label: Hyprland version
+      description: Output of `hyprctl version | head -1`
+    validations:
+      required: true
+  - type: textarea
+    id: hardware
+    attributes:
+      label: GPU and monitors
+      description: GPU(s), driver, and the output of `hyprctl monitors` (scale factors matter)
+  - type: textarea
+    id: state
+    attributes:
+      label: Dock state and logs
+      description: |
+        Output of `glassdockctl dump`, and logs from `GLASSDOCK_DEBUG=1 glassdock`
+        (or `journalctl -t glassdock`).
+      render: shell

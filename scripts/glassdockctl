@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# glassdockctl - talk to a running GlassDock through its control socket.
+#
+# Usage: glassdockctl <command> [arguments]
+#
+#   dump                       print the dock state as JSON (monitors, scale, slots, draw counters)
+#   reveal [output|all]        show the dock for 4 s
+#   hide   [output|all]        hide it now
+#   hover  <output> <x|off>    simulate the pointer over x (logical px inside the dock surface) for 4 s
+#   menu   <output> <app-key>  open the context menu of an app (e.g. kitty.desktop)
+#   refresh                    re-read windows and desktop entries
+#   add                        open the "add app" picker (needs rofi)
+#   shader <dir>               hot-load glass.vert / glass.frag from <dir> (shader development)
+#   quit                       stop the dock (the launcher will not restart it)
+#
+# Examples:
+#   glassdockctl dump | python3 -m json.tool
+#   glassdockctl reveal eDP-1
+#   glassdockctl shader ~/src/glassdock/shaders
+#
+# The socket lives at $XDG_RUNTIME_DIR/glassdock.sock.
+
+set -eu
+
+if [ "$#" -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    exit 0
+fi
+
+sock="${XDG_RUNTIME_DIR:-/tmp}/glassdock.sock"
+[ -S "$sock" ] || { echo "glassdockctl: no running GlassDock (missing $sock)" >&2; exit 1; }
+
+if command -v socat >/dev/null 2>&1; then
+    printf '%s' "$*" | socat -t2 - "UNIX-CONNECT:$sock"
+    exit 0
+fi
+
+exec python3 -I - "$sock" "$@" <<'PY'
+import socket, sys
+
+path, args = sys.argv[1], sys.argv[2:]
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.settimeout(3)
+try:
+    s.connect(path)
+except OSError as exc:
+    sys.exit(f"glassdockctl: cannot connect to {path}: {exc}")
+s.sendall(" ".join(args).encode())
+s.shutdown(socket.SHUT_WR)
+out = b""
+while True:
+    try:
+        chunk = s.recv(65536)
+    except socket.timeout:
+        break
+    if not chunk:
+        break
+    out += chunk
+sys.stdout.write(out.decode(errors="replace"))
+PY

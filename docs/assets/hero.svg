@@ -1,0 +1,327 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="420" viewBox="0 0 1000 420" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">GlassDock hero banner</title>
+  <desc id="hero-desc">Animated banner: a floating liquid-glass dock for Hyprland refracts a colourful wallpaper while a pointer glides over it, magnifying icons and showing their names.</desc>
+
+  <style>
+    /* Slow wallpaper drift (CSS so that reduced-motion users get a still image) */
+    .hero-b1 { animation: hero-d1 9s ease-in-out infinite; }
+    .hero-b2 { animation: hero-d2 9s ease-in-out infinite; }
+    .hero-b3 { animation: hero-d3 9s ease-in-out infinite; }
+    .hero-b4 { animation: hero-d4 9s ease-in-out infinite; }
+    .hero-b5 { animation: hero-d5 9s ease-in-out infinite; }
+    @keyframes hero-d1 { 0%,100% { transform: translate(0px,0px); } 50% { transform: translate(70px,34px); } }
+    @keyframes hero-d2 { 0%,100% { transform: translate(0px,0px); } 50% { transform: translate(-60px,44px); } }
+    @keyframes hero-d3 { 0%,100% { transform: translate(0px,0px); } 50% { transform: translate(-80px,-30px); } }
+    @keyframes hero-d4 { 0%,100% { transform: translate(0px,0px); } 50% { transform: translate(90px,-20px); } }
+    @keyframes hero-d5 { 0%,100% { transform: translate(0px,0px); } 50% { transform: translate(-50px,26px); } }
+    @keyframes hero-sweep { 0%,100% { transform: translateX(-24px); } 50% { transform: translateX(24px); } }
+    .hero-sweep { animation: hero-sweep 9s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-b1, .hero-b2, .hero-b3, .hero-b4, .hero-b5, .hero-sweep { animation: none; }
+    }
+  </style>
+
+  <defs>
+    <!-- ============ wallpaper paints ============ -->
+    <linearGradient id="hero-base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14122e"/>
+      <stop offset=".55" stop-color="#17142f"/>
+      <stop offset="1" stop-color="#0d1a24"/>
+    </linearGradient>
+    <radialGradient id="hero-rg-indigo"><stop offset="0" stop-color="#6a5cff" stop-opacity=".95"/><stop offset=".45" stop-color="#5a49e6" stop-opacity=".5"/><stop offset="1" stop-color="#5a49e6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hero-rg-magenta"><stop offset="0" stop-color="#ff4fa8" stop-opacity=".95"/><stop offset=".45" stop-color="#d63a96" stop-opacity=".5"/><stop offset="1" stop-color="#d63a96" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hero-rg-teal"><stop offset="0" stop-color="#18d6c4" stop-opacity=".9"/><stop offset=".45" stop-color="#14a8a8" stop-opacity=".48"/><stop offset="1" stop-color="#14a8a8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hero-rg-orange"><stop offset="0" stop-color="#ff9e64" stop-opacity=".95"/><stop offset=".45" stop-color="#ff8a4a" stop-opacity=".5"/><stop offset="1" stop-color="#ff8a4a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="hero-rg-purple"><stop offset="0" stop-color="#bb9af7" stop-opacity=".85"/><stop offset=".5" stop-color="#9b7be8" stop-opacity=".4"/><stop offset="1" stop-color="#9b7be8" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hero-sweepg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- ============ shared wallpaper (drawn once for the screen, again inside the glass) ============ -->
+    <g id="hero-wall">
+      <rect width="1000" height="420" fill="url(#hero-base)"/>
+      <!-- big soft colour blobs (radial gradients: no blur filter needed) -->
+      <circle class="hero-b1" cx="150" cy="110" r="290" fill="url(#hero-rg-indigo)"/>
+      <circle class="hero-b2" cx="860" cy="70" r="250" fill="url(#hero-rg-magenta)"/>
+      <circle class="hero-b3" cx="690" cy="400" r="270" fill="url(#hero-rg-teal)"/>
+      <circle class="hero-b4" cx="270" cy="420" r="210" fill="url(#hero-rg-orange)"/>
+      <circle class="hero-b5" cx="520" cy="40" r="210" fill="url(#hero-rg-purple)"/>
+      <!-- faint "window" outlines in the upper corners -->
+      <g fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="1.2">
+        <rect x="38" y="34" width="176" height="104" rx="10"/><path d="M38 58 H214"/>
+        <rect x="788" y="40" width="176" height="96" rx="10"/><path d="M788 64 H964"/>
+      </g>
+      <g fill="#fff" fill-opacity=".28"><circle cx="54" cy="46" r="3.5"/><circle cx="68" cy="46" r="3.5"/><circle cx="804" cy="52" r="3.5"/><circle cx="818" cy="52" r="3.5"/>
+        <rect x="54" y="76" width="110" height="5" rx="2.5"/><rect x="54" y="92" width="136" height="5" rx="2.5"/><rect x="54" y="108" width="82" height="5" rx="2.5"/>
+        <rect x="804" y="82" width="96" height="5" rx="2.5"/><rect x="804" y="98" width="132" height="5" rx="2.5"/><rect x="804" y="114" width="70" height="5" rx="2.5"/></g>
+      <!-- crisp, high-contrast structure behind the dock: this is what the glass visibly bends -->
+      <g class="hero-sweep">
+        <path d="M80 338 H920" stroke="#fff" stroke-opacity=".34" stroke-width="86" stroke-dasharray="2.4 11.6" fill="none"/>
+      </g>
+      <g fill="none" stroke-width="1.8">
+        <circle cx="500" cy="334" r="52" stroke="#7dcfff" stroke-opacity=".7"/>
+        <circle cx="500" cy="334" r="96" stroke="#7dcfff" stroke-opacity=".5"/>
+        <circle cx="500" cy="334" r="142" stroke="#7dcfff" stroke-opacity=".32"/>
+      </g>
+      <g stroke-width="3" fill="none" stroke-linecap="round">
+        <path d="M168 404 L262 286 M246 404 L340 286" stroke="#ff9e64" stroke-opacity=".95"/>
+        <path d="M660 404 L754 286 M738 404 L832 286" stroke="#7aa2f7" stroke-opacity=".95"/>
+      </g>
+      <path d="M40 311 H960 M40 357 H960" stroke="#fff" stroke-opacity=".5" stroke-width="2"/>
+      <circle cx="206" cy="330" r="22" fill="#9ece6a"/>
+      <circle cx="206" cy="330" r="34" fill="none" stroke="#9ece6a" stroke-opacity=".7" stroke-width="2"/>
+      <rect x="776" y="318" width="34" height="34" rx="7" fill="#f7768e" transform="rotate(18 793 335)"/>
+      <rect x="772" y="314" width="42" height="42" rx="9" fill="none" stroke="#f7768e" stroke-opacity=".7" stroke-width="2" transform="rotate(18 793 335)"/>
+      <polygon points="548,372 566,336 584,372" fill="#ff9e64"/>
+      <g fill="#fff" fill-opacity=".62">
+        <rect x="84" y="322" width="118" height="6" rx="3"/><rect x="84" y="337" width="86" height="6" rx="3"/><rect x="84" y="352" width="104" height="6" rx="3"/>
+        <rect x="798" y="322" width="112" height="6" rx="3"/><rect x="824" y="337" width="86" height="6" rx="3"/><rect x="798" y="352" width="100" height="6" rx="3"/>
+      </g>
+    </g>
+
+    <!-- ============ glass geometry (animated once, reused everywhere) ============ -->
+    <rect id="hero-cap" x="200" y="300" width="600" height="68" rx="34">
+      <animate attributeName="x" dur="9s" repeatCount="indefinite" values="200;200;200;200;200;200;200;200;197.9;189.5;181.7;180;179.8;179.8;179.8;179.8;179.8;179.8;179.8;179.8;179.8;179.7;179.1;178.3;177.8;177.3;177.5;177.9;177.4;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.6;177.9;177.3;177.6;177.6;177.3;177.9;177.6;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.3;177.6;180.6;187.2;194.9;199.8;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200;200"/>
+      <animate attributeName="width" dur="9s" repeatCount="indefinite" values="600;600;600;600;600;600;600;600;604.1;621;636.5;640;640.3;640.4;640.4;640.4;640.4;640.4;640.4;640.4;640.4;640.6;641.7;643.4;644.4;645.4;645;644.2;645.1;645.4;645.4;645.4;645.4;645.4;645.4;645.4;645.4;645.4;645.3;644.9;644.2;645.4;644.9;644.9;645.4;644.2;644.9;645.3;645.4;645.4;645.4;645.4;645.4;645.4;645.4;645.4;645.5;645.4;644.8;638.7;625.5;610.1;600.5;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600;600"/>
+    </rect>
+    <clipPath id="hero-capclip"><use href="#hero-cap"/></clipPath>
+    <clipPath id="hero-clip-frame"><rect width="1000" height="420" rx="18"/></clipPath>
+    <mask id="hero-ringmask" maskUnits="userSpaceOnUse" x="120" y="250" width="760" height="170">
+      <use href="#hero-cap" fill="none" stroke="#fff" stroke-width="24" filter="url(#hero-blur-ring)"/>
+    </mask>
+
+    <!-- ============ filters ============ -->
+    <filter id="hero-blur-ic" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="2.6"/></filter>
+    <filter id="hero-blur-ring" x="120" y="250" width="760" height="170" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.2"/></filter>
+    <filter id="hero-blur-sh" x="120" y="250" width="760" height="170" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="13"/></filter>
+    <filter id="hero-blur-in" x="120" y="250" width="760" height="170" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3.5"/></filter>
+    <!-- interior: gentle lens + liquid wobble -->
+    <filter id="hero-refr" x="150" y="250" width="700" height="170" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.011 0.02" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="8" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feGaussianBlur in="d" stdDeviation=".7"/>
+    </filter>
+    <!-- bevel: chromatic dispersion (R/B channels split) -->
+    <filter id="hero-disp" x="150" y="250" width="700" height="170" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation=".8" result="b"/>
+      <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
+      <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
+      <feColorMatrix in="b" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="bl"/>
+      <feOffset in="r" dx="-1.4" dy="-.6" result="r2"/>
+      <feOffset in="bl" dx="1.4" dy=".6" result="b2"/>
+      <feComposite in="r2" in2="g" operator="arithmetic" k2="1" k3="1" result="rg"/>
+      <feComposite in="rg" in2="b2" operator="arithmetic" k2="1" k3="1"/>
+    </filter>
+    <filter id="hero-tshadow" x="-20%" y="-40%" width="140%" height="190%">
+      <feDropShadow dx="0" dy="0" stdDeviation="14" flood-color="#7aa2f7" flood-opacity=".38" result="glow"/>
+      <feDropShadow in="glow" dx="0" dy="3" stdDeviation="4" flood-color="#080914" flood-opacity=".75"/>
+    </filter>
+    <filter id="hero-cshadow" x="-40%" y="-40%" width="200%" height="200%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity=".55"/></filter>
+    <filter id="hero-blur-scrim" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="22"/></filter>
+
+    <!-- ============ glass paints ============ -->
+    <linearGradient id="hero-rim-a" gradientUnits="userSpaceOnUse" x1="300" y1="296" x2="425" y2="374">
+      <stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset=".35" stop-color="#fff" stop-opacity=".42"/><stop offset=".62" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hero-rim-b" gradientUnits="userSpaceOnUse" x1="690" y1="298" x2="590" y2="372">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".45" stop-color="#cfe0ff" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity=".8"/>
+    </linearGradient>
+    <linearGradient id="hero-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".30"/><stop offset=".55" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hero-tint" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dfe8ff" stop-opacity=".22"/><stop offset="1" stop-color="#9ab0ff" stop-opacity=".05"/>
+    </linearGradient>
+    <linearGradient id="hero-gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="hero-titlefill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cdd6ff"/></linearGradient>
+    <radialGradient id="hero-halo"><stop offset="0" stop-color="#ffb27a" stop-opacity="1"/><stop offset=".5" stop-color="#ff9e64" stop-opacity=".85"/><stop offset=".78" stop-color="#ff8a4a" stop-opacity=".35"/><stop offset="1" stop-color="#ff8a4a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="hero-ig-term" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c3150"/><stop offset="1" stop-color="#14151f"/></linearGradient>
+    <linearGradient id="hero-ig-files" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8db4ff"/><stop offset="1" stop-color="#4a6fd0"/></linearGradient>
+    <linearGradient id="hero-ig-web" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fe3ff"/><stop offset="1" stop-color="#2f8fd8"/></linearGradient>
+    <linearGradient id="hero-ig-music" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cdb0ff"/><stop offset="1" stop-color="#7d55d8"/></linearGradient>
+    <linearGradient id="hero-ig-chat" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b4e07a"/><stop offset="1" stop-color="#3f9d68"/></linearGradient>
+    <linearGradient id="hero-ig-code" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb27a"/><stop offset="1" stop-color="#f2566f"/></linearGradient>
+    <linearGradient id="hero-ig-gear" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7480b0"/><stop offset="1" stop-color="#363d63"/></linearGradient>
+  </defs>
+
+  <g clip-path="url(#hero-clip-frame)">
+    <!-- ===================== 1. SCREEN: wallpaper ===================== -->
+    <use href="#hero-wall"/>
+
+    <!-- ===================== 2. TITLE + TAGLINE ===================== -->
+    <ellipse cx="500" cy="138" rx="300" ry="62" fill="#0a0b18" fill-opacity=".42" filter="url(#hero-blur-scrim)"/>
+    <g text-anchor="middle" font-family="Inter, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif">
+      <text x="500" y="140" font-size="66" font-weight="700" letter-spacing="-1.5" fill="url(#hero-titlefill)" filter="url(#hero-tshadow)">GlassDock</text>
+      <text x="500" y="184" font-size="20" font-weight="500" letter-spacing=".2" fill="#e7ecff" filter="url(#hero-cshadow)">A liquid-glass dock for Hyprland, written in Rust</text>
+    </g>
+
+    <!-- ===================== 3. LIQUID GLASS CAPSULE ===================== -->
+    <!-- 3a. soft drop shadow -->
+    <g transform="translate(0 12)"><use href="#hero-cap" fill="#05060f" fill-opacity=".55" filter="url(#hero-blur-sh)"/></g>
+
+    <!-- 3b. refracted backdrop (same wallpaper, lensed, clipped to the capsule) -->
+    <g clip-path="url(#hero-capclip)">
+      <!-- interior: slight magnification + liquid wobble -->
+      <g filter="url(#hero-refr)"><g transform="translate(500 334) scale(1.05 1.16) translate(-500 -334)"><use href="#hero-wall"/></g></g>
+      <!-- bevel ring: strongly compressed backdrop with chromatic fringes -->
+      <g mask="url(#hero-ringmask)"><g filter="url(#hero-disp)"><g transform="translate(500 334) scale(.8 .7) translate(-500 -334)"><use href="#hero-wall"/></g></g></g>
+      <!-- glass body: tint, top sheen, inner shade + inner glow -->
+      <use href="#hero-cap" fill="url(#hero-tint)"/>
+      <rect x="120" y="300" width="760" height="30" fill="url(#hero-sheen)"/>
+      <use href="#hero-cap" fill="none" stroke="#0a0c1c" stroke-opacity=".16" stroke-width="9" filter="url(#hero-blur-in)"/>
+      <use href="#hero-cap" fill="none" stroke="#cfe0ff" stroke-opacity=".30" stroke-width="3" filter="url(#hero-blur-in)" transform="translate(0 .5)"/>
+    </g>
+
+    <!-- 3c. specular rim: strong top-left light, weaker counter light bottom-right -->
+    <use href="#hero-cap" fill="none" stroke="url(#hero-rim-a)" stroke-width="1.8"/>
+    <use href="#hero-cap" fill="none" stroke="url(#hero-rim-b)" stroke-width="1.4"/>
+    <use href="#hero-cap" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width=".8"/>
+
+    <!-- ===================== 4. ICONS ===================== -->
+    <g>
+      <g>
+        <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;601.1 355;609.5 355;617.3 355;619 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.3 355;619.9 355;620.7 355;621.2 355;621.7 355;621.5 355;621.1 355;621.6 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.4 355;621.1 355;621.7 355;621.4 355;620.4 355;616 355;610.7 355;606.2 355;602.4 355;600.5 355;600.2 355;600.2 355;600.2 355;600.2 355;600.2 355;600.2 341.6;600.1 333.3;599.5 329.7;598 330.4;595.8 335.1;594 343.4;594.5 355;596.7 344.2;598.9 337.5;599 334.8;599 335.5;599 339.3;599 346;599 355;599 346.7;599 341.7;599 339.8;599 340.5;599 343.5;599 348.5;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355"/>
+        <circle cx="0" cy="-22" r="50" fill="url(#hero-halo)" opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0.1;0.65;0.93;0.78;0.66;0.66;0.78;0.93;1;0.93;0.78;0.66;0.66;0.78;0.93;1;0.93;0.78;0.66;0.62;0.63;0.57;0.39;0.18;0.04;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+        </circle>
+      </g>
+    </g>
+    <!-- icon 0: Terminal -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;268.3 355;265.8 355;263.8 355;263.1 355;262.8 355;262.8 355;262.8 355;262.8 355;262.8 355;262.8 355;262.8 355;262.8 355;262.8 355;262.6 355;261.7 355;259.7 355;256.5 355;251.7 355;248 355;246.9 355;246.4 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.6 355;246.9 355;246.3 355;246.6 355;246.6 355;246.3 355;246.9 355;246.6 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.3 355;246.6 355;249.6 355;256.2 355;263.9 355;268.8 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355;269 355"/>
+      <rect x="-8" y="5" width="16" height="4" rx="2" fill="#7aa2f7"/><rect x="-8" y="5" width="16" height="1.6" rx=".8" fill="#fff" fill-opacity=".45"/>
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1.064;1.334;1.592;1.639;1.636;1.636;1.636;1.636;1.636;1.636;1.636;1.636;1.636;1.633;1.617;1.563;1.442;1.247;1.068;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-term)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#9ece6a" stroke-width="3" d="M-10 -29 L-3 -22 L-10 -15"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#c0caf5" stroke-width="3" d="M1 -14 H11"/>
+      </g>
+    </g>
+    <!-- icon 1: Files -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;336.4 355;342.3 355;348 355;349.1 355;349 355;349 355;349 355;349 355;349 355;349 355;349 355;349 355;349 355;348.9 355;348.6 355;347.4 355;344.3 355;337.3 355;328.9 355;323.3 355;319.5 355;317.1 355;316.1 355;315.9 355;315.9 355;315.9 355;315.9 355;315.9 355;315.9 355;315.8 355;315 355;313.6 355;312.9 355;312.3 355;312.6 355;312.6 355;312.3 355;312.9 355;312.6 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.3 355;312.6 355;315.6 355;322.2 355;329.9 355;334.8 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355;335 355"/>
+      
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1.03;1.144;1.238;1.27;1.28;1.282;1.282;1.282;1.282;1.282;1.282;1.282;1.282;1.289;1.332;1.423;1.55;1.644;1.61;1.474;1.322;1.217;1.172;1.165;1.165;1.165;1.165;1.165;1.165;1.158;1.119;1.049;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-files)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><path d="M-13 -30 a3 3 0 0 1 3 -3 h6 l3 3.5 h8 a3 3 0 0 1 3 3 v12 a3 3 0 0 1 -3 3 h-17 a3 3 0 0 1 -3 -3 z" fill="#fff" fill-opacity=".95"/><path d="M-13 -25 h26" stroke="#4a6fd0" stroke-opacity=".35" stroke-width="1.5"/>
+      </g>
+    </g>
+    <!-- icon 2: Browser -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;403.1 355;411.5 355;419.3 355;421 355;421.2 355;421.2 355;421.2 355;421.2 355;421.2 355;421.2 355;421.2 355;421.2 355;421.2 355;421.3 355;421.9 355;422.7 355;422.8 355;420.6 355;415.9 355;411.2 355;406.3 355;402.1 355;400.1 355;399.8 355;399.8 355;399.8 355;399.8 355;399.8 355;399.8 355;399.5 355;397.6 355;393.8 355;389.3 355;384 355;379.6 355;378.6 355;378.3 355;378.9 355;378.6 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.3 355;378.6 355;381.6 355;388.2 355;395.9 355;400.8 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355;401 355"/>
+      <circle cx="0" cy="7" r="2" fill="#aab3d9" fill-opacity=".85"/>
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1.019;1.14;1.345;1.523;1.621;1.649;1.649;1.649;1.649;1.649;1.649;1.649;1.649;1.648;1.638;1.593;1.472;1.259;1.048;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-web)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><circle cx="0" cy="-22" r="12.5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="2.4"/><g transform="translate(0 -22) rotate(45)"><path d="M0 -8.5 L3.6 0 L-3.6 0 Z" fill="#fff"/><path d="M0 8.5 L3.6 0 L-3.6 0 Z" fill="#f7768e"/></g>
+      </g>
+    </g>
+    <!-- icon 3: Music -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;469.1 355;477.5 355;485.3 355;487 355;487.2 355;487.2 355;487.2 355;487.2 355;487.2 355;487.2 355;487.2 355;487.2 355;487.2 355;487.3 355;487.9 355;488.7 355;489.2 355;489.7 355;489.5 355;488.9 355;487.8 355;486.1 355;485.1 355;484.9 355;484.9 355;484.9 355;484.9 355;484.9 355;484.9 355;484.7 355;483.7 355;481.1 355;477.2 355;469.8 355;459.8 355;452.9 355;447.2 355;445.1 355;444.6 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.3 355;444.6 355;447.6 355;454.2 355;461.9 355;466.8 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355;467 355"/>
+      
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1.008;1.083;1.167;1.212;1.22;1.22;1.22;1.22;1.22;1.22;1.227;1.273;1.378;1.524;1.642;1.593;1.378;1.13;1.009;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-music)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="2.6" d="M-1 -16 V-31 L9 -33 V-18"/><circle cx="-4.2" cy="-15" r="4" fill="#fff"/><circle cx="5.8" cy="-17" r="4" fill="#fff"/>
+      </g>
+    </g>
+    <!-- icon 4: Chat -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;535.1 355;543.5 355;551.3 355;553 355;553.2 355;553.2 355;553.2 355;553.2 355;553.2 355;553.2 355;553.2 355;553.2 355;553.2 355;553.3 355;553.9 355;554.7 355;555.2 355;555.7 355;555.5 355;555.1 355;555.6 355;555.7 355;555.7 355;555.7 355;555.7 355;555.7 355;555.7 355;555.7 355;555.7 355;555.7 355;555.7 355;555.4 355;554.9 355;552.8 355;547.1 355;540.2 355;530.2 355;522.8 355;518.9 355;516.3 355;515.3 355;515.1 355;515.1 355;515.1 355;515.1 355;515.1 355;515.1 355;515.1 355;514.7 355;514 355;513.3 355;515.2 355;521 355;528.2 355;532.8 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355;533 355"/>
+      <circle cx="0" cy="7" r="2" fill="#aab3d9" fill-opacity=".85"/>
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1.009;1.13;1.378;1.593;1.642;1.524;1.378;1.273;1.227;1.22;1.22;1.22;1.22;1.22;1.22;1.217;1.202;1.17;1.122;1.073;1.036;1.011;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-chat)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><path d="M-12 -30 a4 4 0 0 1 4 -4 h16 a4 4 0 0 1 4 4 v9 a4 4 0 0 1 -4 4 h-9 l-6 5.5 v-5.5 h-1 a4 4 0 0 1 -4 -4 z" fill="#fff"/><circle cx="-5" cy="-25.5" r="1.7" fill="#4fa86a"/><circle cx="0" cy="-25.5" r="1.7" fill="#4fa86a"/><circle cx="5" cy="-25.5" r="1.7" fill="#4fa86a"/>
+      </g>
+    </g>
+    <!-- icon 5: Code -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;601.1 355;609.5 355;617.3 355;619 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.2 355;619.3 355;619.9 355;620.7 355;621.2 355;621.7 355;621.5 355;621.1 355;621.6 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.7 355;621.4 355;621.1 355;621.7 355;621.4 355;620.4 355;616 355;610.7 355;606.2 355;602.4 355;600.5 355;600.2 355;600.2 355;600.2 355;600.2 355;600.2 355;600.2 341.6;600.1 333.3;599.5 329.7;598 330.4;595.8 335.1;594 343.4;594.5 355;596.7 344.2;598.9 337.5;599 334.8;599 335.5;599 339.3;599 346;599 355;599 346.7;599 341.7;599 339.8;599 340.5;599 343.5;599 348.5;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355;599 355"/>
+      
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1.048;1.259;1.472;1.593;1.638;1.648;1.649;1.649;1.649;1.649;1.649;1.649;1.649;1.65;1.649;1.63;1.509;1.301;1.103;1.004;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-code)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="3" d="M-5 -30 L-12 -22 L-5 -14"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="3" d="M5 -30 L12 -22 L5 -14"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="2.6" stroke-opacity=".9" d="M2 -32 L-2 -12"/>
+      </g>
+    </g>
+    <!-- icon 6: Settings -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;667.1 355;675.5 355;683.3 355;685 355;685.2 355;685.2 355;685.2 355;685.2 355;685.2 355;685.2 355;685.2 355;685.2 355;685.2 355;685.3 355;685.9 355;686.7 355;687.2 355;687.7 355;687.5 355;687.1 355;687.6 355;687.7 355;687.7 355;687.7 355;687.7 355;687.7 355;687.7 355;687.7 355;687.7 355;687.7 355;687.7 355;687.4 355;687.1 355;687.7 355;687.4 355;687.4 355;687.7 355;687.1 355;686.4 355;685 355;684.2 355;684.1 355;684.1 355;684.1 355;684.1 355;684.1 355;684.1 355;684.1 355;683.7 355;683 355;681.5 355;677.8 355;672.4 355;667.2 355;665.1 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355;665 355"/>
+      
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1.049;1.119;1.158;1.165;1.165;1.165;1.165;1.165;1.165;1.167;1.181;1.214;1.267;1.298;1.241;1.104;1.005;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <rect x="-22" y="-41" width="44" height="44" rx="11" fill="#000" fill-opacity=".38" filter="url(#hero-blur-ic)"/><rect x="-22" y="-44" width="44" height="44" rx="11" fill="url(#hero-ig-gear)"/><rect x="-22" y="-44" width="44" height="22" rx="11" fill="url(#hero-gloss)"/><rect x="-21.5" y="-43.5" width="43" height="43" rx="10.5" fill="none" stroke="#fff" stroke-opacity=".38"/><circle cx="0" cy="-22" r="6.6" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="3.4"/><circle cx="0" cy="-22" r="10.6" fill="none" stroke="#fff" stroke-width="4.2" stroke-dasharray="4.17 4.17"/>
+      </g>
+    </g>
+    <!-- icon 7: plus -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;733.1 355;741.5 355;749.3 355;751 355;751.2 355;751.2 355;751.2 355;751.2 355;751.2 355;751.2 355;751.2 355;751.2 355;751.2 355;751.3 355;751.9 355;752.7 355;753.2 355;753.7 355;753.5 355;753.1 355;753.6 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.4 355;753.1 355;753.7 355;753.4 355;753.4 355;753.7 355;753.1 355;753.4 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.7 355;753.4 355;750.4 355;743.7 355;735.8 355;731.2 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355;731 355"/>
+      
+      <g>
+        <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1.002;1.012;1.001;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+        <circle cx="0" cy="-22" r="21" fill="#fff" fill-opacity=".10" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/><path fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="#fff" stroke-width="3" d="M-8 -22 H8 M0 -30 V-14"/>
+      </g>
+    </g>
+
+    <!-- ===================== 5. NAME PILL ===================== -->
+    <g font-family="Inter, 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif" text-anchor="middle" font-size="13" font-weight="600">
+      <g>
+        <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.8 259;263.1 256.9;262.8 257;262.8 257;262.8 257;262.8 257;262.8 257;262.8 257;262.8 257;262.8 257;262.8 257;262.6 257.1;261.7 257.9;261.7 260.4;331.6 261.5;337.3 256.6;328.9 258.1;381.2 262.7;406.3 257.7;402.1 256.5;400.1 256.4;399.8 256.5;399.8 256.5;399.8 256.5;399.8 256.5;399.8 256.5;399.8 256.5;399.5 256.5;397.6 256.9;393.8 258.9;447.8 262.7;469.8 256.8;459.8 258.9;540.2 258.9;530.2 256.8;552.2 262.7;606.2 258.9;602.4 256.9;600.5 256.5;600.2 256.5;600.2 256.5;600.2 256.5;600.2 256.5;600.2 256.5;600.2 243.1;600.1 234.8;599.5 231.1;598 231.9;595.8 237.4;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1;594 251.1"/>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0.96;1;1;1;1;1;1;1;1;1;1;1;1;0.8;0.12;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-42.2" y="-12" width="84.4" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-40.2" y="-11" width="80.4" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Terminal</text>
+        </g>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0.02;0.72;1;1;0.3;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-31.2" y="-12" width="62.5" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-29.2" y="-11" width="58.5" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Files</text>
+        </g>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0.57;1;1;1;1;1;1;1;1;1;1;1;0.96;0.29;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-38.5" y="-12" width="77.1" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-36.5" y="-11" width="73.1" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Browser</text>
+        </g>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0.58;1;0.96;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-31.2" y="-12" width="62.5" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-29.2" y="-11" width="58.5" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Music</text>
+        </g>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0.96;1;0.58;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-27.6" y="-12" width="55.2" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-25.6" y="-11" width="51.2" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Chat</text>
+        </g>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0.29;0.96;1;1;1;1;1;1;1;1;1;1;1;1;0.49;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-27.6" y="-12" width="55.2" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-25.6" y="-11" width="51.2" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Code</text>
+        </g>
+        <g opacity="0">
+          <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+          <rect x="-42.2" y="-12" width="84.4" height="24" rx="12" fill="#14162a" fill-opacity=".72" stroke="#fff" stroke-opacity=".38" stroke-width="1"/>
+          <rect x="-40.2" y="-11" width="80.4" height="11" rx="5.5" fill="url(#hero-gloss)" opacity=".35"/>
+          <text x="0" y="4.4" fill="#e8ecff">Settings</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- ===================== 6. POINTER ===================== -->
+    <circle cx="596" cy="339" r="0" fill="none" stroke="#7dcfff" stroke-width="2" opacity="0">
+      <animate attributeName="r" dur="9s" repeatCount="indefinite" values="0;0;30;30" keyTimes="0;0.5778;0.6500;1"/>
+      <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;.9;0;0" keyTimes="0;0.5778;0.6500;1"/>
+    </circle>
+    <g>
+      <animateTransform attributeName="transform" type="translate" dur="9s" repeatCount="indefinite" values="250 425;250.7 424.2;253.8 420.9;258.2 416.1;261.3 412.8;262 412;262.2 410.8;263.4 404.4;265.9 391.9;269 375.5;272.1 359.1;274.6 346.6;275.8 340.2;276 339;276 339;276 339;276 339;276 339;276 339;276 339;276 339;276.8 339;281.7 339;292.5 339;308.9 339;329.2 339;350.8 339;371.1 339;387.5 339;398.3 339;403.2 339;404 339;404 339;404 339;404 339;404 339;404 339;404.8 339;409.5 339;420.2 339;437.3 339;459.9 339;486.2 339;513.8 339;540.1 339;562.7 339;579.8 339;590.5 339;595.2 339;596 339;596 339;596 339;596 339;596 339;596 339;596.3 339.3;597.8 341.4;601.4 346.2;607.1 353.7;614.6 363.8;623.4 375.4;632.6 387.6;641.4 399.2;648.9 409.3;654.6 416.8;658.2 421.6;659.7 423.7;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424;660 424"/>
+      <g opacity="0">
+        <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;0.1;0.35;0.65;0.9;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0.9;0.65;0.35;0.1;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0;0"/>
+        <g>
+          <animateTransform attributeName="transform" type="scale" dur="9s" repeatCount="indefinite" values="1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;0.935;0.892;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1;1"/>
+          <path d="M0 0 L0 17.5 L4.4 13.6 L7.3 20.2 L10.2 18.9 L7.3 12.5 L12.9 12.5 Z" fill="#fff" stroke="#10121f" stroke-width="1.3" stroke-linejoin="round" filter="url(#hero-cshadow)"/>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>
