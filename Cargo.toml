@@ -11,7 +11,7 @@ categories = ["gui"]
 
 [dependencies]
 # Wayland: layer-shell surfaces, outputs, seat/pointer (keyboard support is not needed, so no xkbcommon).
-smithay-client-toolkit = { version = "0.20", default-features = false, features = ["calloop"] }
+smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop"] }
 wayland-client = "0.31"
 # `client_system` exposes the raw wl_display / wl_surface pointers that EGL needs.
 wayland-backend = { version = "0.3", features = ["client_system"] }
