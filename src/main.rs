@@ -1021,7 +1021,9 @@ impl App {
                     Kind::Add => {
                         let size = s.w * scale;
                         let x = s.x * scale;
-                        let y = icon_bottom - size;
+                        // The button is smaller than an app icon: centre it on the row of icons
+                        // (icons are bottom-aligned, so the centres differ by half the size gap).
+                        let y = icon_bottom - size * (ICON / ADD_BASE) / 2.0 - size / 2.0;
                         let (fill, stroke, plus) = if bright {
                             (
                                 [0.0, 0.0, 0.0, 0.07],

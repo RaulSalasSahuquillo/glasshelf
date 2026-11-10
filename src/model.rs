@@ -76,6 +76,9 @@ pub struct AppInfo {
     /// Kept so window classes can still be matched to the app, but `visible()` excludes it.
     pub no_display: bool,
     pub terminal: bool,
+    /// `DBusActivatable=true`: `gio launch` would activate the app over D-Bus, which for some
+    /// (e.g. Nautilus) starts a windowless background service on the first call.
+    pub dbus_activatable: bool,
 }
 
 /// First-run seeding table: each category is a priority list of desktop ids.
@@ -421,6 +424,7 @@ pub fn parse_desktop_entry(text: &str, path: &Path, id: &str, ctx: &ParseCtx) ->
         actions,
         no_display,
         terminal: kv_bool(kv, "Terminal"),
+        dbus_activatable: kv_bool(kv, "DBusActivatable"),
     })
 }
 
@@ -739,12 +743,17 @@ pub fn launch_commands(app: &AppInfo, action: Option<&str>) -> Vec<Vec<String>> 
     ];
     match action {
         None => {
-            let mut v = vec![gio];
             let direct = expand_exec(&app.exec, app);
-            if !direct.is_empty() && !app.terminal {
-                v.push(direct); // fallback when `gio` is not available
+            let direct_ok = !direct.is_empty() && !app.terminal;
+            if direct_ok && app.dbus_activatable {
+                // Run the Exec line itself, as a launcher menu does. D-Bus activation through
+                // `gio launch` can leave the app running without a window on the first click.
+                vec![direct, gio]
+            } else if direct_ok {
+                vec![gio, direct] // `direct` is the fallback when `gio` is not available
+            } else {
+                vec![gio]
             }
-            v
         }
         Some(a) => {
             let Some(act) = app.actions.iter().find(|x| x.id == a) else {
@@ -1729,6 +1738,11 @@ Exec=x
         }];
         assert_eq!(launch_commands(&a, None)[0], vec!["gio", "launch", "/x/t.desktop"]);
         assert_eq!(launch_commands(&a, None)[1], vec!["kitty"]);
+        // D-Bus activatable apps run their Exec line first (Nautilus opens no window otherwise).
+        a.dbus_activatable = true;
+        assert_eq!(launch_commands(&a, None)[0], vec!["kitty"]);
+        assert_eq!(launch_commands(&a, None)[1], vec!["gio", "launch", "/x/t.desktop"]);
+        a.dbus_activatable = false;
         assert_eq!(
             launch_commands(&a, Some("nw")),
             vec![vec!["kitty", "--single-instance"]]

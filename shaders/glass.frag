@@ -151,8 +151,7 @@ void main() {
     float softKey = exp(-t / (6.5 * S)) * pow(key, 2.0) * 0.20;
     float softCnt = exp(-t / (3.0 * S)) * pow(cnt, 2.0) * 0.16;
 
-    // caustic echo of the fold + inner glow
-    float echo = exp(-sq((t - 0.56 * bw) / (1.5 * S))) * (0.045 + 0.10 * key + 0.05 * cnt);
+    // inner glow
     float glow = exp(-t / (8.0 * S)) * (0.02 + 0.05 * (0.5 - 0.5 * g.y));
 
     // hover spot
@@ -160,7 +159,7 @@ void main() {
     float spot = exp(-dot(dp, dp) / (2.0 * sq(52.0 * S))) * u_pointer.z;
 
     float glint = (pow(key, 38.0) * 0.85 + pow(cnt, 38.0) * 0.32) * exp(-t / (2.2 * S));
-    float hi = (rimKey + rimCnt + softKey + softCnt + echo + glow + glint) * hiScale;
+    float hi = (rimKey + rimCnt + softKey + softCnt + glow + glint) * hiScale;
     hi += ln * spot * 0.85 + spot * 0.15 * (1.0 - 0.6 * bright) + softKey * spot * 1.2;
     vec3 rimCol = mix(vec3(1.0), spill, 0.30);
     // inner shadow just inside the highlight (thickness) + gentle edge darkening

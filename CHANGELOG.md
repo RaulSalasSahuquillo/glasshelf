@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Removed a thin concentric line drawn inside the glass bevel.
+- The `+` button is now centred on the row of icons instead of sitting on the bottom line.
+- Apps with `DBusActivatable=true` (for example Files/Nautilus) opened no window on the first
+  click: they are now started through their `Exec` line, like a launcher menu does.
+
 ## [0.1.0] - 2026-11-07
 
 First public version.
