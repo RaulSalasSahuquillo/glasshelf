@@ -1720,12 +1720,7 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
     // Same as the dock: keep a discrete NVIDIA GPU asleep, use Mesa for EGL unless overridden.
-    if std::env::var_os("__EGL_VENDOR_LIBRARY_FILENAMES").is_none() {
-        let mesa = "/usr/share/glvnd/egl_vendor.d/50_mesa.json";
-        if std::path::Path::new(mesa).exists() {
-            std::env::set_var("__EGL_VENDOR_LIBRARY_FILENAMES", mesa);
-        }
-    }
+    crate::model::force_mesa_egl();
     let conn = Connection::connect_to_env().map_err(|e| anyhow!("no Wayland connection: {e}"))?;
     let (globals, event_queue) = registry_queue_init::<SettingsApp>(&conn).map_err(|e| anyhow!("registry: {e}"))?;
     let qh = event_queue.handle();

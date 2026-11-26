@@ -329,12 +329,7 @@ fn main() -> Result<()> {
         }
     }
     // Keep a discrete NVIDIA GPU asleep: force Mesa (the iGPU) for EGL unless the user overrides it.
-    if std::env::var_os("__EGL_VENDOR_LIBRARY_FILENAMES").is_none() {
-        let mesa = "/usr/share/glvnd/egl_vendor.d/50_mesa.json";
-        if std::path::Path::new(mesa).exists() {
-            std::env::set_var("__EGL_VENDOR_LIBRARY_FILENAMES", mesa);
-        }
-    }
+    model::force_mesa_egl();
     let filter = std::env::var("GLASSDOCK_OUTPUTS").ok().map(|s| {
         s.split(',')
             .map(|x| x.trim().to_string())

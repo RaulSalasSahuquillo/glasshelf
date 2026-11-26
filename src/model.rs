@@ -776,6 +776,21 @@ extern "C" {
     fn setsid() -> i32;
 }
 
+/// True when the dock itself set `__EGL_VENDOR_LIBRARY_FILENAMES` (to stay on the iGPU).
+static EGL_FORCED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Forces Mesa for this process's EGL unless the user already chose a vendor. Apps launched
+/// from the dock do not inherit it (see [`spawn_detached`]).
+pub fn force_mesa_egl() {
+    if std::env::var_os("__EGL_VENDOR_LIBRARY_FILENAMES").is_none() {
+        let mesa = "/usr/share/glvnd/egl_vendor.d/50_mesa.json";
+        if std::path::Path::new(mesa).exists() {
+            std::env::set_var("__EGL_VENDOR_LIBRARY_FILENAMES", mesa);
+            EGL_FORCED.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+}
+
 pub fn spawn_detached(argv: &[String]) -> io::Result<()> {
     let Some((prog, args)) = argv.split_first() else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "empty command"));
@@ -785,6 +800,12 @@ pub fn spawn_detached(argv: &[String]) -> io::Result<()> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
+    // The Mesa-only EGL override is for the dock, not for the apps it launches: when the
+    // session renders on the NVIDIA GPU, Mesa cannot drive it and apps fall back to
+    // software rendering (llvmpipe), burning CPU.
+    if EGL_FORCED.load(std::sync::atomic::Ordering::Relaxed) {
+        cmd.env_remove("__EGL_VENDOR_LIBRARY_FILENAMES");
+    }
     if let Some(h) = home_dir().filter(|h| h.is_dir()) {
         cmd.current_dir(h);
     }
