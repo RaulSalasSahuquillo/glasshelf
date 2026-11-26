@@ -21,6 +21,8 @@
 //                  (Hyprland layerrule blur), so the body is a translucent veil plus the lighting
 //                  instead of a refracted snapshot, and moving content stays visible. Keep the body
 //                  alpha above the layer rule's ignore_alpha and the shadow below it.
+//   u_accent_a/b   outline colours (system accent: Hyprland's active border gradient, 45deg)
+//   u_accent_amt   0 = the usual white edge light, 1 = the edge ring takes the accent colours
 precision highp float;
 precision highp sampler2D;
 
@@ -34,6 +36,9 @@ uniform vec3  u_pointer;
 uniform float u_lum;
 uniform float u_time;
 uniform float u_live;
+uniform vec3  u_accent_a;
+uniform vec3  u_accent_b;
+uniform float u_accent_amt;
 
 in vec2 v_px;
 out vec4 o_color;
@@ -191,6 +196,21 @@ void main() {
     float gloss = (exp(-sq((k + 190.0) / 60.0)) * 0.07 + exp(-sq((k - 70.0) / 24.0)) * 0.04) * topm;
     col += vec3(gloss) * (1.0 - 0.6 * bright);
 
+    // ---- accent outline (option "outline follows system colour") ------------------------
+    // The edge ring is tinted along a 45deg gradient over the panel box (bottom-left -> top-right,
+    // like Hyprland's border). The white rim light is partly replaced, not stacked, so it stays a
+    // refined edge and not a neon rim; the ring is a bit stronger on the lit sides.
+    float accA = 0.0;
+    vec3 accCol = vec3(0.0);
+    if (u_accent_amt > 0.001) {
+        vec2 ad = vec2(0.70710678, -0.70710678);
+        float gs = clamp(dot(pc, ad) / (abs(ad.x) * u_panel.z + abs(ad.y) * u_panel.w) + 0.5, 0.0, 1.0);
+        accCol = mix(u_accent_a, u_accent_b, gs) * mix(1.0, 0.80, bright);
+        float lit = 0.62 + 0.38 * max(key, 0.6 * cnt);
+        accA = clamp(ln * 0.80 * lit + exp(-t / (2.4 * S)) * 0.10 + exp(-t / (7.0 * S)) * 0.035, 0.0, 1.0)
+             * u_accent_amt;
+    }
+
     // grain / dither
     float n = fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))) - 0.5;
 
@@ -206,13 +226,16 @@ void main() {
         A += shade * 0.6 * (1.0 - A);
         // light layer (rim, glints, hover spot, fresnel, gloss) composited OVER the veil
         float Lt = clamp(hi + 0.10 * fres * hiScale + gloss * (1.0 - 0.6 * bright) * 1.4, 0.0, 1.0);
+        Lt *= 1.0 - 0.55 * ln * u_accent_amt;   // the accent ring replaces part of the white rim
         vec3 lightCol = mix(vec3(1.0), vec3(0.93, 0.95, 1.0), 0.5);
         vec4 live = vec4(lightCol * Lt + pm * (1.0 - Lt), Lt + A * (1.0 - Lt));
+        live = vec4(accCol * accA, accA) + live * (1.0 - accA);
         live.rgb += n * (1.6 / 255.0) * live.a;
         o_color = live * cov + vec4(0.0, 0.0, 0.0, a_out) * (1.0 - cov);
         return;
     }
 
+    col = mix(col, accCol, accA);
     col += n * (1.6 / 255.0);
 
     vec4 glass = vec4(clamp(col, 0.0, 1.0), 1.0);

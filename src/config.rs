@@ -27,6 +27,9 @@ pub struct Settings {
     pub magnification: bool,
     /// Peak icon scale of the magnification (`ZOOM_MIN..=ZOOM_MAX`).
     pub zoom: f32,
+    /// The outline (edge ring) of the glass takes the desktop accent colour: Hyprland's active
+    /// window border (`general:col.active_border`), so it follows themes and wallpaper sync.
+    pub outline_system: bool,
     /// Show recently and frequently used apps that are closed and not pinned.
     pub recommended: bool,
     /// How many recommended apps at most (`RECOMMENDED_MIN..=RECOMMENDED_MAX`).
@@ -40,6 +43,7 @@ impl Default for Settings {
             live_glass: true,
             magnification: true,
             zoom: ZOOM_DEFAULT,
+            outline_system: false,
             recommended: true,
             recommended_count: RECOMMENDED_DEFAULT,
         }
@@ -88,6 +92,9 @@ impl Settings {
             }
             if let Some(z) = o.get("zoom").and_then(|v| v.as_f64()) {
                 s.zoom = z as f32;
+            }
+            if let Some(b) = o.get("outline_system").and_then(|v| v.as_bool()) {
+                s.outline_system = b;
             }
             if let Some(b) = o.get("recommended").and_then(|v| v.as_bool()) {
                 s.recommended = b;
@@ -229,6 +236,18 @@ mod tests {
     }
 
     #[test]
+    fn outline_option_defaults_off_and_reads_the_key() {
+        let d = tmp("outline");
+        assert!(!Settings::default().outline_system);
+        std::fs::write(d.join("a.json"), r#"{ "zoom": 2.0 }"#).unwrap();
+        assert!(!Settings::load_from(&d.join("a.json")).outline_system, "absent key: off");
+        std::fs::write(d.join("b.json"), r#"{ "outline_system": true }"#).unwrap();
+        assert!(Settings::load_from(&d.join("b.json")).outline_system);
+        std::fs::write(d.join("c.json"), r#"{ "outline_system": "yes" }"#).unwrap();
+        assert!(!Settings::load_from(&d.join("c.json")).outline_system, "wrong type: default");
+    }
+
+    #[test]
     fn partial_file_keeps_other_defaults() {
         let d = tmp("partial");
         std::fs::write(d.join("s.json"), r#"{ "recommended": false }"#).unwrap();
@@ -265,6 +284,7 @@ mod tests {
             live_glass: false,
             magnification: false,
             zoom: 1.5,
+            outline_system: true,
             recommended: false,
             recommended_count: 2,
         };

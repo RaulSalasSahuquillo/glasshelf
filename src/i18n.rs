@@ -36,6 +36,8 @@ pub enum Msg {
     AutoHideHint,
     LiveGlass,
     LiveGlassHint,
+    OutlineSystem,
+    OutlineSystemHint,
     Magnification,
     MagnificationHint,
     Zoom,
@@ -101,6 +103,8 @@ pub fn translate(lang: Lang, msg: Msg) -> &'static str {
         (Lang::En, Msg::AutoHideHint) => "Shows when the pointer touches the bottom edge",
         (Lang::En, Msg::LiveGlass) => "Live glass",
         (Lang::En, Msg::LiveGlassHint) => "Shows what moves behind the dock as it happens",
+        (Lang::En, Msg::OutlineSystem) => "Outline follows system colour",
+        (Lang::En, Msg::OutlineSystemHint) => "The edge takes the accent colour of the desktop (window border)",
         (Lang::En, Msg::Magnification) => "Magnification",
         (Lang::En, Msg::MagnificationHint) => "Icons grow as the pointer passes over them",
         (Lang::En, Msg::Zoom) => "Zoom level",
@@ -130,6 +134,8 @@ pub fn translate(lang: Lang, msg: Msg) -> &'static str {
         (Lang::Es, Msg::AutoHideHint) => "Aparece al llevar el puntero al borde inferior",
         (Lang::Es, Msg::LiveGlass) => "Cristal en vivo",
         (Lang::Es, Msg::LiveGlassHint) => "Muestra en tiempo real lo que se mueve detrás",
+        (Lang::Es, Msg::OutlineSystem) => "Contorno con el color del sistema",
+        (Lang::Es, Msg::OutlineSystemHint) => "El borde toma el color de acento del escritorio (borde de ventana)",
         (Lang::Es, Msg::Magnification) => "Ampliación",
         (Lang::Es, Msg::MagnificationHint) => "Los iconos crecen al pasar el puntero",
         (Lang::Es, Msg::Zoom) => "Nivel de zoom",
@@ -148,7 +154,7 @@ pub fn translate(lang: Lang, msg: Msg) -> &'static str {
 mod tests {
     use super::*;
 
-    const ALL: [Msg; 27] = [
+    const ALL: [Msg; 29] = [
         Msg::NewWindow,
         Msg::MinimizeOne,
         Msg::MinimizeAll,
@@ -167,6 +173,8 @@ mod tests {
         Msg::AutoHideHint,
         Msg::LiveGlass,
         Msg::LiveGlassHint,
+        Msg::OutlineSystem,
+        Msg::OutlineSystemHint,
         Msg::Magnification,
         Msg::MagnificationHint,
         Msg::Zoom,

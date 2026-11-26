@@ -77,7 +77,7 @@ const XKB_MOD_CONTROL: u32 = 1 << 2;
 // ---------------------------------------------------------------------------------------------
 
 const WIN_W: f32 = 560.0;
-const WIN_H: f32 = 608.0;
+const WIN_H: f32 = 672.0;
 /// Matches Hyprland's `decoration:rounding` on this setup: the compositor blurs (and clips) the
 /// window with that radius, a larger one would leave blurred corners poking out of the glass.
 const WIN_RADIUS: f32 = 12.0;
@@ -165,9 +165,10 @@ enum Ctl {
     Clear,
     AutoHide,
     LiveGlass,
+    OutlineSystem,
 }
 
-const CTL_COUNT: usize = 9;
+const CTL_COUNT: usize = 10;
 const ALL_CTLS: [Ctl; CTL_COUNT] = [
     Ctl::Close,
     Ctl::Magnification,
@@ -178,6 +179,7 @@ const ALL_CTLS: [Ctl; CTL_COUNT] = [
     Ctl::Clear,
     Ctl::AutoHide,
     Ctl::LiveGlass,
+    Ctl::OutlineSystem,
 ];
 
 impl Ctl {
@@ -189,13 +191,15 @@ impl Ctl {
 // Row indices into `Layout::rows`.
 const ROW_HIDE: usize = 0;
 const ROW_LIVE: usize = 1;
-const ROW_MAG: usize = 2;
-const ROW_ZOOM: usize = 3;
-const ROW_REC: usize = 4;
-const ROW_COUNT: usize = 5;
-const ROW_CLEAR: usize = 6;
-const ROW_N: usize = 7;
+const ROW_OUTLINE: usize = 2;
+const ROW_MAG: usize = 3;
+const ROW_ZOOM: usize = 4;
+const ROW_REC: usize = 5;
+const ROW_COUNT: usize = 6;
+const ROW_CLEAR: usize = 7;
+const ROW_N: usize = 8;
 const ROW_HEIGHTS: [f32; ROW_N] = [
+    ROW_HINT_H,
     ROW_HINT_H,
     ROW_HINT_H,
     ROW_HINT_H,
@@ -205,7 +209,7 @@ const ROW_HEIGHTS: [f32; ROW_N] = [
     ROW_BTN_H,
 ];
 /// (first row, number of rows) of each card.
-const SECTIONS: [(usize, usize); 2] = [(ROW_HIDE, 4), (ROW_REC, 3)];
+const SECTIONS: [(usize, usize); 2] = [(ROW_HIDE, 5), (ROW_REC, 3)];
 
 #[derive(Clone, Debug, PartialEq)]
 struct Layout {
@@ -379,6 +383,9 @@ fn hit_test(l: &Layout, en: &Enabled, x: f32, y: f32) -> Option<Ctl> {
     if l.rows[ROW_LIVE].contains(x, y) {
         return Some(Ctl::LiveGlass);
     }
+    if l.rows[ROW_OUTLINE].contains(x, y) {
+        return Some(Ctl::OutlineSystem);
+    }
     if l.rows[ROW_MAG].contains(x, y) {
         return Some(Ctl::Magnification);
     }
@@ -407,6 +414,7 @@ fn activate(s: &mut Settings, c: Ctl) -> bool {
     match c {
         Ctl::AutoHide => s.auto_hide = !s.auto_hide,
         Ctl::LiveGlass => s.live_glass = !s.live_glass,
+        Ctl::OutlineSystem => s.outline_system = !s.outline_system,
         Ctl::Magnification => s.magnification = !s.magnification,
         Ctl::Recommended => s.recommended = !s.recommended,
         Ctl::Minus => s.recommended_count = step_count(s.recommended_count, -1),
@@ -677,8 +685,8 @@ impl Ui {
 struct Anims {
     hover: [f32; CTL_COUNT],
     press: [f32; CTL_COUNT],
-    /// Slide position of the toggles: magnification, recommended, auto-hide, live glass.
-    on: [f32; 4],
+    /// Slide position of the toggles: magnification, recommended, auto-hide, live glass, system outline.
+    on: [f32; 5],
     /// 1 = enabled: zoom row, count row, minus, plus.
     en: [f32; 4],
     cleared: f32,
@@ -687,7 +695,7 @@ struct Anims {
 struct Targets {
     hover: [f32; CTL_COUNT],
     press: [f32; CTL_COUNT],
-    on: [f32; 4],
+    on: [f32; 5],
     en: [f32; 4],
     cleared: f32,
 }
@@ -711,6 +719,7 @@ fn targets(ui: &Ui) -> Targets {
             f(ui.s.recommended),
             f(ui.s.auto_hide),
             f(ui.s.live_glass),
+            f(ui.s.outline_system),
         ],
         en: [
             f(en.zoom),
@@ -752,7 +761,7 @@ impl Anims {
             // Faster in than out would feel jumpy; a single time constant is enough.
             go(&mut self.press[i], t.press[i], 0.045);
         }
-        for i in 0..4 {
+        for i in 0..5 {
             // About 4 time constants = the 150-200 ms slide of the brief.
             go(&mut self.on[i], t.on[i], 0.045);
         }
@@ -790,6 +799,7 @@ fn parse_ctl(s: &str) -> Option<Ctl> {
         "6" | "clear" => Some(Ctl::Clear),
         "7" | "hide" | "autohide" => Some(Ctl::AutoHide),
         "8" | "live" => Some(Ctl::LiveGlass),
+        "9" | "outline" => Some(Ctl::OutlineSystem),
         _ => None,
     }
 }
@@ -1373,6 +1383,7 @@ impl Renderer {
         let rows = [
             (ROW_HIDE, Msg::AutoHide, Some(Msg::AutoHideHint), 1.0),
             (ROW_LIVE, Msg::LiveGlass, Some(Msg::LiveGlassHint), 1.0),
+            (ROW_OUTLINE, Msg::OutlineSystem, Some(Msg::OutlineSystemHint), 1.0),
             (ROW_MAG, Msg::Magnification, Some(Msg::MagnificationHint), 1.0),
             (ROW_ZOOM, Msg::Zoom, None, dim(an.en[0])),
             (ROW_REC, Msg::ShowRecommended, Some(Msg::ShowRecommendedHint), 1.0),
@@ -1431,6 +1442,7 @@ impl Renderer {
         // Toggles.
         self.draw_toggle(cv, &l.rows[ROW_HIDE], an.on[2], Ctl::AutoHide, an, 1.0);
         self.draw_toggle(cv, &l.rows[ROW_LIVE], an.on[3], Ctl::LiveGlass, an, 1.0);
+        self.draw_toggle(cv, &l.rows[ROW_OUTLINE], an.on[4], Ctl::OutlineSystem, an, 1.0);
         self.draw_toggle(cv, &l.rows[ROW_MAG], an.on[0], Ctl::Magnification, an, 1.0);
         self.draw_toggle(cv, &l.rows[ROW_REC], an.on[1], Ctl::Recommended, an, 1.0);
 
@@ -2447,6 +2459,19 @@ mod tests {
     }
 
     #[test]
+    fn outline_toggle_flips_and_the_page_fits_the_window() {
+        let mut s = Settings::default();
+        assert!(!s.outline_system);
+        assert!(activate(&mut s, Ctl::OutlineSystem));
+        assert!(s.outline_system);
+        assert!(activate(&mut s, Ctl::OutlineSystem));
+        assert!(!s.outline_system);
+        assert_eq!(parse_ctl("outline"), Some(Ctl::OutlineSystem));
+        let l = lay();
+        assert!(l.rows[ROW_CLEAR].bottom() <= l.footer_y, "the last row ends above the footer");
+    }
+
+    #[test]
     fn toggles_flip() {
         let mut s = Settings::default();
         assert!(activate(&mut s, Ctl::Magnification));
@@ -2469,6 +2494,13 @@ mod tests {
             hit_test(&l, &en, l.rows[ROW_MAG].x + 30.0, l.rows[ROW_MAG].cy()),
             Some(Ctl::Magnification)
         );
+        // The whole outline row toggles, and its neighbours keep their own controls.
+        let orow = l.rows[ROW_OUTLINE];
+        assert_eq!(hit_test(&l, &en, orow.x + 30.0, orow.cy()), Some(Ctl::OutlineSystem));
+        let t = toggle_track(&orow);
+        assert_eq!(hit_test(&l, &en, t.cx(), t.cy()), Some(Ctl::OutlineSystem));
+        assert_eq!(hit_test(&l, &en, orow.x + 30.0, orow.y - 1.0), Some(Ctl::LiveGlass));
+        assert_eq!(hit_test(&l, &en, orow.x + 30.0, orow.bottom() + 1.0), Some(Ctl::Magnification));
         assert_eq!(hit_test(&l, &en, l.close.cx(), l.close.cy()), Some(Ctl::Close));
         assert_eq!(hit_test(&l, &en, 280.0, 20.0), None, "the title area is not a control");
         let (m, _, p) = stepper(&l.rows[ROW_COUNT]);
@@ -2673,7 +2705,7 @@ mod tests {
     fn separators_sit_between_rows_of_one_card() {
         let l = lay();
         let seps = l.separators();
-        assert_eq!(seps.len(), 5);
+        assert_eq!(seps.len(), 6);
         for s in seps {
             assert!(l.cards.iter().any(|c| s.y > c.y && s.bottom() < c.bottom()));
         }

@@ -2,6 +2,7 @@
 //! A single process, one surface per monitor, redraws only on demand (0 % CPU when idle).
 // `as_chunks` is too recent to require from users building with an older stable toolchain.
 #![allow(clippy::chunks_exact_to_as_chunks)]
+mod accent;
 mod capture;
 mod config;
 mod dock;
@@ -257,6 +258,10 @@ struct App {
     start: Instant,
     quit: bool,
     total_draws: u64,
+    /// Colour of the outline when `settings.outline_system` is on (tweened); see `accent.rs`.
+    accent: accent::Tween,
+    /// Last accent read from Hyprland (kept so toggling the option needs no IPC to fade out).
+    accent_grad: Option<accent::Gradient>,
 }
 
 fn dbg_log(msg: &str) {
@@ -412,6 +417,8 @@ fn main() -> Result<()> {
         start: Instant::now(),
         quit: false,
         total_draws: 0,
+        accent: accent::Tween::new(Instant::now()),
+        accent_grad: None,
     };
 
     WaylandSource::new(conn.clone(), event_queue)
@@ -499,6 +506,7 @@ fn main() -> Result<()> {
         }
     }
 
+    app.sync_accent(true, false);
     app.refresh();
     event_loop.run(None, &mut app, |app| {
         if app.quit {
@@ -804,6 +812,7 @@ impl App {
             dbg_log(&format!("settings changed: {new:?}"));
             let hide_changed = new.auto_hide != self.settings.auto_hide;
             self.settings = new;
+            self.sync_accent(true, true);
             // A bigger zoom needs sharper icon textures (and a smaller one frees memory).
             let px = icon_px_for(self.settings.zoom);
             if px != self.icon_px {
@@ -916,6 +925,9 @@ impl App {
 
     fn on_hypr_data(&mut self, data: &[u8]) {
         let names = self.parser.push(data);
+        if names.iter().any(|n| n == "configreloaded") {
+            self.sync_accent(true, true);
+        }
         if names.iter().any(|n| model::EventParser::is_relevant(n)) && !self.refresh_scheduled {
             self.refresh_scheduled = true;
             let _ = self.loop_handle.insert_source(
@@ -926,6 +938,37 @@ impl App {
                 },
             );
         }
+    }
+
+    /// Brings the outline colour in line with the option and (when `read`) with Hyprland's active
+    /// border. One IPC round trip, only at start, on toggling, on each reveal, on `configreloaded`
+    /// and on `glassdockctl color`; nothing runs while the dock is at rest. Returns whether the
+    /// outline is on.
+    fn sync_accent(&mut self, read: bool, redraw: bool) -> bool {
+        let on = self.settings.outline_system;
+        if on && read {
+            if let Some(g) = self.hypr.as_ref().and_then(|h| h.active_border_text()).and_then(|t| accent::parse_gradient(&t)) {
+                self.accent_grad = Some(g);
+            }
+        }
+        let now = Instant::now();
+        let to = match (on, self.accent_grad) {
+            (true, Some(g)) => accent::Look::on(g),
+            // Off (or nothing read yet): fade out in the colour it has.
+            _ => accent::Look {
+                amt: 0.0,
+                ..self.accent.target()
+            },
+        };
+        let before = self.accent.target();
+        self.accent.retarget(now, to);
+        if before != to && redraw {
+            dbg_log(&format!("outline accent -> {to:?}"));
+            for vi in 0..self.views.len() {
+                self.request_redraw(vi);
+            }
+        }
+        on
     }
 
     fn request_redraw(&mut self, vi: usize) {
@@ -1045,7 +1088,7 @@ impl App {
             return;
         }
         let now = Instant::now();
-        let (busy, start_cap) = {
+        let (busy, start_cap, revealed) = {
             let have_screencopy = self.screencopy.is_some();
             let v = &mut self.views[vi];
             let dt = now.duration_since(v.last_draw).as_secs_f32().clamp(0.0005, 0.08);
@@ -1059,10 +1102,16 @@ impl App {
                     }
                 }
             }
+            let was_hidden = v.layout.reveal < 0.004;
             let need = v.backdrop_stale || v.backdrop_time.is_none_or(|t| now.duration_since(t) > BACKDROP_MAX_AGE);
             let r = v.layout.step(dt, now, need && have_screencopy, v.capturing);
-            (r.busy, r.start_capture)
+            (r.busy, r.start_capture, was_hidden && v.layout.reveal >= 0.004)
         };
+        if revealed && self.settings.outline_system {
+            self.sync_accent(true, false);
+        }
+        // The colour tween keeps frames coming only while the dock is visible and it still runs.
+        let busy = busy || (self.views[vi].layout.reveal >= 0.004 && self.accent.active(now));
         if start_cap {
             self.start_capture(vi);
         }
@@ -1157,6 +1206,7 @@ impl App {
             (panel_px[3] + 2.0 * margin + 20.0 * scale).min(surf.1 - qy),
         ];
         let t = now.duration_since(self.start).as_secs_f32();
+        let accent_now = self.accent.current(now);
         {
             let g = self.gfx.as_ref().unwrap();
             let v = &self.views[vi];
@@ -1176,6 +1226,7 @@ impl App {
                     lum,
                     t,
                     self.settings.live_glass,
+                    &accent_now,
                 );
             } else {
                 g.shape(
@@ -1982,6 +2033,14 @@ impl App {
                 self.reload_settings();
                 "ok\n".into()
             }
+            "color" => {
+                // re-read the system accent now (the desktop theme code pokes this after a change)
+                if self.sync_accent(true, true) {
+                    "ok\n".into()
+                } else {
+                    "off\n".into()
+                }
+            }
             "drag" => {
                 // drag <output> <key> <x> [hold]: drag the icon `key` to x (logical px) like the mouse does
                 // and drop it, or keep holding it (until `dragend`) to look at the drag
@@ -2089,7 +2148,7 @@ impl App {
                 self.quit = true;
                 "ok\n".into()
             }
-            _ => "unknown command: reveal|hide|hover|menu|refresh|add|shader|dump|quit\n".into(),
+            _ => "unknown command: reveal|hide|hover|menu|refresh|color|add|shader|dump|quit\n".into(),
         }
     }
 }

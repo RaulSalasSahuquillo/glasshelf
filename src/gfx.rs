@@ -406,6 +406,7 @@ impl Gfx {
         lum: f32,
         time: f32,
         live: bool,
+        accent: &crate::accent::Look,
     ) {
         let g = &self.glass;
         self.use_prog(g, surf);
@@ -424,6 +425,9 @@ impl Gfx {
         self.u1(g, "u_lum", lum);
         self.u1(g, "u_time", time);
         self.u1(g, "u_live", if live { 1.0 } else { 0.0 });
+        self.u3(g, "u_accent_a", accent.a[0], accent.a[1], accent.a[2]);
+        self.u3(g, "u_accent_b", accent.b[0], accent.b[1], accent.b[2]);
+        self.u1(g, "u_accent_amt", accent.amt);
         self.quad(
             quad_rect[0],
             quad_rect[1],

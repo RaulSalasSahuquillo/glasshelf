@@ -10,6 +10,8 @@
 #   menu   <output> <app-key>  open the context menu of an app (e.g. kitty.desktop)
 #   refresh                    re-read windows and desktop entries
 #   reload                     re-read settings.json (the settings window does this by itself)
+#   color                      re-read the system accent (Hyprland's active border) for the
+#                              "outline follows system colour" option; prints ok, or off when the option is off
 #   drag   <output> <key> <x> [hold]   drag a pinned icon to x like the mouse would (testing)
 #   dragend [output]           drop an icon that is being held with `drag ... hold`
 #   add                        open the "add app" picker (needs rofi)
@@ -26,7 +28,7 @@
 set -eu
 
 if [ "$#" -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-    sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit 0
 fi
 

@@ -1066,6 +1066,12 @@ impl Hypr {
         Some(String::from_utf8_lossy(&buf).into_owned())
     }
 
+    /// Text of Hyprland's `general:col.active_border` (e.g. `ccfa785a ccfd8d2e 45deg`), the
+    /// desktop's accent. `None` when the query fails.
+    pub fn active_border_text(&self) -> Option<String> {
+        self.request("j/getoption general:col.active_border")
+    }
+
     fn json_request(&self, req: &str) -> Option<Value> {
         serde_json::from_str(self.request(req)?.trim()).ok()
     }

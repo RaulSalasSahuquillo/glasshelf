@@ -179,10 +179,21 @@ open "GlassDock Settings" from your launcher. Changes apply immediately.
 | --- | --- | --- |
 | Hide automatically | on | The dock slides in at the bottom edge. Off: it stays visible and windows make room for it. |
 | Live glass | on | Hyprland blurs what is behind the dock every frame, so moving content shows through. Needs the `glassdock-live` layer rule from [`config/hyprland.conf.example`](config/hyprland.conf.example). Off: the lensed refraction of a snapshot taken when the dock appears. |
+| Outline follows system colour | off | The glass edge takes the desktop accent: Hyprland's `general:col.active_border` (first and last colour, 45deg gradient), so themes and wallpaper colour sync show on the dock. Re-read on reveal, on config reload and on `glassdockctl color`; fades in 250 ms. Also `"outline_system": true` in `settings.json`. |
 | Magnification | on | Icons grow under the pointer. |
 | Zoom level | 1.78x | Peak size of the magnification (1.25x to 2x). |
 | Show recommended apps | on | The section described above. |
 | Number of recommended apps | 3 | 1 to 5. |
+
+**Outline colour, how it works.** With the option on, the dock reads the active window border of
+Hyprland (`hyprctl getoption general:col.active_border`: the first and second colour of the
+gradient, any alpha is ignored) through its own IPC at start, when the option changes, each time the
+dock is revealed, on `configreloaded`, and on `glassdockctl color` (the desktop's theme script calls
+it after changing the colours, never waiting for it). The ring is tinted along a 45deg gradient over
+the panel (first colour bottom-left, second top-right); it replaces part of the white rim light
+instead of adding a neon line, is a little stronger on the lit sides, and a colour that is too dark
+is brightened (hue kept) so it stays visible on dark and bright backdrops. Changes fade over 250 ms;
+nothing polls and nothing redraws while the dock rests.
 
 They live in `~/.config/glassdock/settings.json`, which you can also edit by hand: the dock notices
 the change within two seconds (or run `glassdockctl reload`).
@@ -199,6 +210,7 @@ clicking its icon in the dock brings it back.
 glassdockctl reveal eDP-1        # show the dock on one monitor for 4 s
 glassdockctl hide all
 glassdockctl refresh             # re-read windows and desktop entries
+glassdockctl color               # re-read the system accent for the outline option
 glassdockctl dump | python3 -m json.tool
 glassdockctl quit                # stop the dock (the launcher will not restart it)
 ```
